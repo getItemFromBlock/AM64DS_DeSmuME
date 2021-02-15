@@ -8,11 +8,9 @@ To play SM64DS with an analog stick, it requires a small patch to the game, whic
 
 Using the analog stick with Super Mario 64 DS requires a few steps to set it up.
 
-### Download the Latest Release (optional)
+### Download the Latest Releases
 
-The v0.9.11 release of DeSmuME includes additonal files, such as a database file, that you might want to have. These files appear to be optional, though.
-
-You can download the latest release build from https://desmume.org/download/ under "Stable Releases".
+This is to make sure you have any support files needed for the emulator. You can download the latest release build from https://desmume.org/download/ under "Stable Releases".
 
 ### Download the Modded Emulator Build
 
@@ -51,6 +49,13 @@ You need to patch the game to read the analog stick values from the emulator. Th
 To use the ROM patch, Download the IPS file for your version of the game from [the PATCHES page](PATCHES.md) and apply it to your ROM file using an IPS patching tool, such as [Marc Robledo's browser tool](https://www.marcrobledo.com/RomPatcher.js/).
 
 To use the cheat code, open the game ROM (File -> Open ROM...) and go to Tools -> Cheats -> List, find the code needed for your game version from [the PATCHES page](PATCHES.md), and add the code as an "Action Replay" cheat code. Make sure the cheat is enabled and click Save to apply it.
+
+---
+
+At this point, everything is setup to use the analog stick mod. If you you close the game or emulator, you just need to reopen the game or emulator and the mod will still be applied. If you wish to play the game with the original control scheme again, disable the cheat code in the cheats lists, close, and reopen the ROM.
+### Apply the game patch (cheat code)
+
+Open the game ROM (File -> Open ROM...) and go to Tools -> Cheats -> List. Find the code needed for your game version from [the CHEATS page](CHEATS.md) and add the code as an "Action Replay" cheat code. Make sure the cheat is enabled and click Save.
 
 ---
 
