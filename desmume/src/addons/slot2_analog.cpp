@@ -27,10 +27,8 @@
 #define ANGLE_TO_SHORT 10430.37835047f
 /* (float) 0x1000 */
 #define FLOAT_TO_FIXED 4096.0f
-/* Open-Bus Value (mask) */
-#define OPEN_BUS 0xAFFF
 
-static u16 analog_x, analog_y, analog_magnitude, analog_angle;
+static u16 state[4];
 
 class Slot2_Analog : public ISlot2Interface {
 public:
@@ -93,8 +91,8 @@ void analog_setValue(float x, float y) {
 		mag = 1.0f;
 	}
 
-	analog_x = static_cast<u16>(std::lround(x * FLOAT_TO_FIXED));
-	analog_y = static_cast<u16>(std::lround(y * FLOAT_TO_FIXED));
-	analog_magnitude = static_cast<u16>(std::lround(mag * FLOAT_TO_FIXED));
-	analog_angle = static_cast<u16>(std::lround(ang * ANGLE_TO_SHORT));
+	state[0] = static_cast<u16>(std::lround(mag * FLOAT_TO_FIXED));
+	state[1] = static_cast<u16>(std::lround(  x * FLOAT_TO_FIXED));
+	state[2] = static_cast<u16>(std::lround(  y * FLOAT_TO_FIXED));
+	state[3] = static_cast<u16>(std::lround(ang * ANGLE_TO_SHORT));
 }
