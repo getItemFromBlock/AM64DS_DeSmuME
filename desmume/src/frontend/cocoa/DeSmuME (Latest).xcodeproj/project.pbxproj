@@ -3730,6 +3730,13 @@
 		ABFEA8CC1BB4EC1100B08C25 /* smooth.c in Sources */ = {isa = PBXBuildFile; fileRef = ABFEA7E41BB4EC1000B08C25 /* smooth.c */; };
 		ABFEA8E81BB4FB3100B08C25 /* truetype.c in Sources */ = {isa = PBXBuildFile; fileRef = ABFEA7E61BB4EC1000B08C25 /* truetype.c */; };
 		ABFEA8EA1BB4FB3200B08C25 /* truetype.c in Sources */ = {isa = PBXBuildFile; fileRef = ABFEA7E61BB4EC1000B08C25 /* truetype.c */; };
+		D493A4F425F982C400282CE5 /* slot2_analog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D493A4F325F982C400282CE5 /* slot2_analog.cpp */; };
+		D493A4F525F982C400282CE5 /* slot2_analog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D493A4F325F982C400282CE5 /* slot2_analog.cpp */; };
+		D493A4F625F982C400282CE5 /* slot2_analog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D493A4F325F982C400282CE5 /* slot2_analog.cpp */; };
+		D493A4F725F982C400282CE5 /* slot2_analog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D493A4F325F982C400282CE5 /* slot2_analog.cpp */; };
+		D493A4F825F982C400282CE5 /* slot2_analog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D493A4F325F982C400282CE5 /* slot2_analog.cpp */; };
+		D493A4F925F982C400282CE5 /* slot2_analog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D493A4F325F982C400282CE5 /* slot2_analog.cpp */; };
+		D493A4FA25F982C400282CE5 /* slot2_analog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D493A4F325F982C400282CE5 /* slot2_analog.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -4548,6 +4555,7 @@
 		ABFEA7C81BB4EC1000B08C25 /* sfnt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sfnt.c; path = sfnt/sfnt.c; sourceTree = "<group>"; };
 		ABFEA7E41BB4EC1000B08C25 /* smooth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = smooth.c; path = smooth/smooth.c; sourceTree = "<group>"; };
 		ABFEA7E61BB4EC1000B08C25 /* truetype.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = truetype.c; path = truetype/truetype.c; sourceTree = "<group>"; };
+		D493A4F325F982C400282CE5 /* slot2_analog.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = slot2_analog.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -5761,6 +5769,7 @@
 				AB9038AB17C5ED2200F410BD /* slot1comp_mc.cpp */,
 				AB8B7AAB17CE8C440051CEBF /* slot1comp_protocol.cpp */,
 				AB9038AD17C5ED2200F410BD /* slot1comp_rom.cpp */,
+				D493A4F325F982C400282CE5 /* slot2_analog.cpp */,
 				AB29B16518313C14009B7982 /* slot2_auto.cpp */,
 				ABD1FF031345AC9B00AF11D1 /* slot2_expMemory.cpp */,
 				ABD1FF041345AC9B00AF11D1 /* slot2_gbagame.cpp */,
@@ -8811,6 +8820,7 @@
 				AB7900A8215B84E50082AE82 /* slot1_retail_nand.cpp in Sources */,
 				AB7900A9215B84E50082AE82 /* encoding_utf.c in Sources */,
 				AB7900AA215B84E50082AE82 /* OGLDisplayOutput.cpp in Sources */,
+				D493A4F625F982C400282CE5 /* slot2_analog.cpp in Sources */,
 				AB7900AB215B84E50082AE82 /* slot2_expMemory.cpp in Sources */,
 				AB7900AC215B84E50082AE82 /* xbrz.cpp in Sources */,
 				AB7900AD215B84E50082AE82 /* slot2_gbagame.cpp in Sources */,
@@ -9114,6 +9124,7 @@
 				AB79024D215B84F20082AE82 /* MacBaseCaptureTool.mm in Sources */,
 				AB79024E215B84F20082AE82 /* lq2x.cpp in Sources */,
 				AB79024F215B84F20082AE82 /* xbrz.cpp in Sources */,
+				D493A4F725F982C400282CE5 /* slot2_analog.cpp in Sources */,
 				AB790250215B84F20082AE82 /* OGLDisplayOutput_3_2.cpp in Sources */,
 				AB790251215B84F20082AE82 /* scanline.cpp in Sources */,
 				AB790252215B84F20082AE82 /* coreaudiosound.cpp in Sources */,
@@ -9270,6 +9281,7 @@
 				AB796D2C15CDCBA200C59155 /* slot1_retail_nand.cpp in Sources */,
 				AB35BD8F1DEBF40800844310 /* encoding_utf.c in Sources */,
 				ABE6840C189E33BC007FD69C /* OGLDisplayOutput.cpp in Sources */,
+				D493A4F425F982C400282CE5 /* slot2_analog.cpp in Sources */,
 				AB796D2D15CDCBA200C59155 /* slot2_expMemory.cpp in Sources */,
 				AB47B52F18A45C35009A42AF /* xbrz.cpp in Sources */,
 				AB796D2E15CDCBA200C59155 /* slot2_gbagame.cpp in Sources */,
@@ -9573,6 +9585,7 @@
 				AB28625020AE3E7B00EAED43 /* MacBaseCaptureTool.mm in Sources */,
 				AB8F3CEC1A53AC2600A80BF6 /* lq2x.cpp in Sources */,
 				AB8F3CED1A53AC2600A80BF6 /* xbrz.cpp in Sources */,
+				D493A4F525F982C400282CE5 /* slot2_analog.cpp in Sources */,
 				ABB24F6F1A81EE92006C1108 /* OGLDisplayOutput_3_2.cpp in Sources */,
 				AB8F3CEE1A53AC2600A80BF6 /* scanline.cpp in Sources */,
 				AB8F3CEF1A53AC2600A80BF6 /* coreaudiosound.cpp in Sources */,
@@ -9789,6 +9802,22 @@
 				AB2ABA421C9F9CFA00173B15 /* rsemaphore.c in Sources */,
 				AB000DD91CCC6B4300413F02 /* retro_stat.c in Sources */,
 				AB49B549281687B90069F1D7 /* ftpfr.c in Sources */,
+				AB405656169F5DBB0016AC3E /* operand.cpp in Sources */,
+				AB405659169F5DBB0016AC3E /* stringbuilder.cpp in Sources */,
+				AB40565C169F5DBB0016AC3E /* stringutil.cpp in Sources */,
+				AB40565F169F5DBB0016AC3E /* virtualmemory.cpp in Sources */,
+				AB405662169F5DBB0016AC3E /* zonememory.cpp in Sources */,
+				AB40567A169F5DCC0016AC3E /* x86assembler.cpp in Sources */,
+				AB40567D169F5DCC0016AC3E /* x86compiler.cpp in Sources */,
+				AB405680169F5DCC0016AC3E /* x86compilercontext.cpp in Sources */,
+				D493A4FA25F982C400282CE5 /* slot2_analog.cpp in Sources */,
+				AB405683169F5DCC0016AC3E /* x86compilerfunc.cpp in Sources */,
+				AB405686169F5DCC0016AC3E /* x86compileritem.cpp in Sources */,
+				AB405689169F5DCC0016AC3E /* x86cpuinfo.cpp in Sources */,
+				AB40568C169F5DCC0016AC3E /* x86defs.cpp in Sources */,
+				AB40568F169F5DCC0016AC3E /* x86func.cpp in Sources */,
+				AB405692169F5DCC0016AC3E /* x86operand.cpp in Sources */,
+				AB405695169F5DCC0016AC3E /* x86util.cpp in Sources */,
 				AB68A0DD16B139BC00DE0546 /* OGLRender_3_2.cpp in Sources */,
 				AB9038B717C5ED2200F410BD /* slot1comp_mc.cpp in Sources */,
 				AB3A656316CC5438001F5D4A /* cocoa_GPU.mm in Sources */,
