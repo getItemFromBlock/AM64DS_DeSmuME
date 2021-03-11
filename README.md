@@ -36,9 +36,13 @@ If you want to play other games that use the GBA slot with the emulator, you can
 
 At this point, you likely want to switch the other controls to use the same controller as the analog stick. This can be done in Config -> Control Config. If you've already configured the controls how you want, you can skip this step.
 
-### Apply the game patch (cheat code)
+### Apply the game patch (cheat code or IPS patch)
 
-Open the game ROM (File -> Open ROM...) and go to Tools -> Cheats -> List. Find the code needed for your game version from [the CHEATS page](CHEATS.md) and add the code as an "Action Replay" cheat code. Make sure the cheat is enabled and click Save.
+You need to patch the game to read the analog stick values from the emulator. There are two ways of doing this: Applying a ROM patch or using a cheat code.
+
+To use the ROM patch, Download the IPS file for your version of the game from [the PATCHES page](PATCHES.md) and apply it to your ROM file using an IPS patching tool, such as [Marc Robledo's browser tool](https://www.marcrobledo.com/RomPatcher.js/).
+
+To use the cheat code, open the game ROM (File -> Open ROM...) and go to Tools -> Cheats -> List, find the code needed for your game version from [the PATCHES page](PATCHES.md), and add the code as an "Action Replay" cheat code. Make sure the cheat is enabled and click Save to apply it.
 
 ---
 

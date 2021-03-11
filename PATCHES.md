@@ -12,6 +12,9 @@
 
 ## American Release, revision 0
 
+IPS Patch: [S.MARIO64DS_ASME01_00.ips](//raw.githubusercontent.com/LRFLEW/AM64DS_DeSmuME/analog/patches/S.MARIO64DS_ASME01_00.ips)
+
+Cheat Code:
 ```
 E202B320 0000003C
 E3A03301 E3833F81
@@ -29,6 +32,9 @@ D2000000 00000000
 
 ## American Release, revision 1
 
+IPS Patch: [S.MARIO64DS_ASME01_01.ips](//raw.githubusercontent.com/LRFLEW/AM64DS_DeSmuME/analog/patches/S.MARIO64DS_ASME01_01.ips)
+
+Cheat Code:
 ```
 E202B5E4 0000003C
 E3A03301 E3833F81
@@ -50,7 +56,7 @@ You can identify the revision of a game cartridge by the black text printed on t
 
 You can identify the revision of a ROM file with a hex editor. The byte at address `0x1E` is `00` for [revision 0](#american-release-revision-0) and `01` for [revision 1](#american-release-revision-1).
 
-If you still are unsure, you can use the following code, which will detect your game revision and apply the right patch:
+If you still are unsure, you can use the following cheat code, which will detect your game revision and apply the right patch:
 
 ```
 823FFE1E 00000000
@@ -76,6 +82,9 @@ D2000000 00000000
 
 ## Japanese Release, revision 0
 
+IPS Patch: [S.MARIO64DS_ASMJ01_00.ips](//raw.githubusercontent.com/LRFLEW/AM64DS_DeSmuME/analog/patches/S.MARIO64DS_ASMJ01_00.ips)
+
+Cheat Code:
 ```
 E202B5A8 0000003C
 E3A03301 E3833F81
@@ -93,6 +102,9 @@ D2000000 00000000
 
 ## Japanese Release, revision 1
 
+IPS Patch: [S.MARIO64DS_ASMJ01_01.ips](//raw.githubusercontent.com/LRFLEW/AM64DS_DeSmuME/analog/patches/S.MARIO64DS_ASMJ01_01.ips)
+
+Cheat Code:
 ```
 E202B5E0 0000003C
 E3A03301 E3833F81
@@ -114,7 +126,7 @@ You should be able to identify a revision of the game cartridge by the black tex
 
 You can identify the revision of a ROM file with a hex editor. The byte at address `0x1E` is `00` for [revision 0](#japanese-release-revision-0) and `01` for [revision 1](#japanese-release-revision-1).
 
-If you still are unsure, you can use the following code, which will detect your game revision and apply the right patch:
+If you still are unsure, you can use the following cheat code, which will detect your game revision and apply the right patch:
 
 ```
 823FFE1E 00000000
@@ -140,6 +152,9 @@ D2000000 00000000
 
 ## European Release
 
+IPS Patch: [S.MARIO64DS_ASMP01_00.ips](//raw.githubusercontent.com/LRFLEW/AM64DS_DeSmuME/analog/patches/S.MARIO64DS_ASMP01_00.ips)
+
+Cheat Code:
 ```
 E202C404 0000003C
 E3A03301 E3833F81
@@ -157,6 +172,9 @@ D2000000 00000000
 
 ## Korean Release
 
+IPS Patch: [S.MARIO64DS_ASMK01_00.ips](//raw.githubusercontent.com/LRFLEW/AM64DS_DeSmuME/analog/patches/S.MARIO64DS_ASMK01_00.ips)
+
+Cheat Code:
 ```
 E202B3E4 0000003C
 E3A03301 E3833F81
@@ -180,7 +198,7 @@ You can identify the region of a ROM file with a hex editor. The four bytes star
 
 You can also identify the game version by version differences. The [Japanese version](#japanese-release-unknown-revision) has a blue Nintendo logo at the start and is in Japanese. The [Korean version](#korean-release) has a black Nintendo logo at the start, is in Korean, and does not have a button on the main menu for the minigames. Both the American and European releases have a red Nintendo logo at the start, but the [European version](#european-release) matches the console's language (English, French, German, Spanish, and Italian), while the [American version](#american-release-unknown-revision) is always in English.
 
-If you cannot figure out which version you have, you can use the following code, which will detect your game version and apply the right patch. It is **recommended** that you use a version-specific patch, as this code is significantly more version detection than patching, but it *is* an option if you need it. Note: this code still only works with the versions with version-specific codes, and won't work with other versions, such as Demo builds.
+If you cannot figure out which version you have, you can use the following cheat code, which will detect your game version and apply the right patch. It is **recommended** that you use a version-specific patch, as this code is significantly more version detection than patching, but it *is* an option if you need it. Note: this code still only works with the versions with version-specific codes, and won't work with other versions, such as Demo builds.
 
 ```
 523FFE0C 454D5341
