@@ -8,9 +8,11 @@ To play SM64DS with an analog stick, it requires a small patch to the game, whic
 
 Using the analog stick with Super Mario 64 DS requires a few steps to set it up.
 
-### Download the Latest Releases
+### Download the Latest Releases (optional)
 
-This is to make sure you have any support files needed for the emulator. You can download the latest release build from https://desmume.org/download/ under "Stable Releases".
+The v0.9.11 release of DeSmuME includes additonal files, such as a database file, that you might want to have. These files appear to be optional, though.
+
+You can download the latest release build from https://desmume.org/download/ under "Stable Releases".
 
 ### Download the Modded Emulator Build
 
@@ -39,6 +41,8 @@ If you want to play other games that use the GBA slot with the emulator, you can
 ### (Optional) Configure button controls
 
 At this point, you likely want to switch the other controls to use the same controller as the analog stick. This can be done in Config -> Control Config. If you've already configured the controls how you want, you can skip this step.
+
+**Note:** The D-Pad is used to rotate the camera (in Standard Mode), so it's recommended to not map the D-Pad to the same analog stick configured in the GBA-slot window. You can map the D-Pad to another analog stick, such as the right analog stick, if you want to control the camera with it.
 
 ### Apply the game patch (cheat code or IPS patch)
 
