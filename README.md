@@ -8,7 +8,7 @@ To play SM64DS with an analog stick, it requires a small patch to the game, whic
 
 Using the analog stick with Super Mario 64 DS requires a few steps to set it up.
 
-### Download the Latest Releases (optional)
+### Download the Latest Release (optional)
 
 The v0.9.11 release of DeSmuME includes additonal files, such as a database file, that you might want to have. These files appear to be optional, though.
 
