@@ -4004,6 +4004,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 				NDS_UnPause();
 			delete MainWindowToolbar;
 			KillTimer(hwnd, autoHideCursorTimer);
+			if(HudEditorMode)
+				osd->SaveHudEditor();
 			return 0;
 		}
 	case WM_TIMER:
@@ -5187,6 +5189,8 @@ DOKEYDOWN:
 			HudEditorMode ^= true;
 			osd->clear();
 			osd->border(HudEditorMode);
+			if(!HudEditorMode)
+				osd->SaveHudEditor();
 			return 0;
 
 		case ID_VIEW_DISPLAYMICROPHONE:
