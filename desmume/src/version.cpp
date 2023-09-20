@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2009-2021 DeSmuME team
+	Copyright (C) 2009-2022 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 #include "version.h"
 
 // Helper macros to convert numerics to strings
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && !defined(__clang__)
 	//re: http://72.14.203.104/search?q=cache:HG-okth5NGkJ:mail.python.org/pipermail/python-checkins/2002-November/030704.html+_msc_ver+compiler+version+string&hl=en&gl=us&ct=clnk&cd=5
 	#define _Py_STRINGIZE(X) _Py_STRINGIZE1((X))
 	#define _Py_STRINGIZE1(X) _Py_STRINGIZE2 ## X
@@ -50,7 +50,7 @@
 	#define DESMUME_PLATFORM_STRING " ARM"
 #elif defined(__thumb__)
 	#define DESMUME_PLATFORM_STRING " ARM-Thumb"
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) || defined(_M_ARM64)
     #if defined(__APPLE__)
 	#define DESMUME_PLATFORM_STRING " ARM64"
     #else
@@ -78,6 +78,8 @@
 	#define DESMUME_CPUEXT_PRIMARY_STRING " SSE"
 #elif defined(ENABLE_ALTIVEC)
 	#define DESMUME_CPUEXT_PRIMARY_STRING " AltiVec"
+#elif defined(ENABLE_NEON_A64)
+	#define DESMUME_CPUEXT_PRIMARY_STRING " NEON-A64"
 #endif
 
 #if defined(ENABLE_AVX512_3)
@@ -151,10 +153,10 @@
 
 const u8 DESMUME_VERSION_MAJOR = 0;
 const u8 DESMUME_VERSION_MINOR = 9;
-const u8 DESMUME_VERSION_BUILD = 12;
+const u8 DESMUME_VERSION_BUILD = 14;
 
-#define DESMUME_VERSION_NUMERIC 91200
-#define DESMUME_VERSION_STRING " " "0.9.12" DESMUME_SUBVERSION_STRING DESMUME_FEATURE_STRING DESMUME_PLATFORM_STRING DESMUME_JIT DESMUME_CPUEXT_STRING
+#define DESMUME_VERSION_NUMERIC 91400
+#define DESMUME_VERSION_STRING " " "0.9.14" DESMUME_SUBVERSION_STRING DESMUME_FEATURE_STRING DESMUME_PLATFORM_STRING DESMUME_JIT DESMUME_CPUEXT_STRING
 #define DESMUME_NAME_AND_VERSION DESMUME_NAME DESMUME_VERSION_STRING
 
 u32 EMU_DESMUME_VERSION_NUMERIC() { return DESMUME_VERSION_NUMERIC; }

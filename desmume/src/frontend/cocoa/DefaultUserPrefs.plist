@@ -4,6 +4,8 @@
 <dict>
 	<key>Advanscene_AutoDetectRomSaveType</key>
 	<true/>
+	<key>CheatDatabase_RecentFilePath</key>
+	<array/>
 	<key>CoreControl_EnableAutoFrameSkip</key>
 	<true/>
 	<key>CoreControl_FramesToSkipSetting</key>
@@ -14,6 +16,8 @@
 	<true/>
 	<key>CoreControl_SpeedScalar</key>
 	<real>1</real>
+	<key>Debug_AppAppearanceMode</key>
+	<integer>0</integer>
 	<key>Debug_DisableMetal</key>
 	<false/>
 	<key>Debug_GDBStubEnableARM9</key>
@@ -827,7 +831,7 @@
 		<array/>
 		<key>Enable/Disable Auto Frame Skip</key>
 		<array/>
-		<key>Enable/Disable Cheats</key>
+		<key>Enable/Disable Cheat System</key>
 		<array/>
 		<key>Enable/Disable GPU State</key>
 		<array/>

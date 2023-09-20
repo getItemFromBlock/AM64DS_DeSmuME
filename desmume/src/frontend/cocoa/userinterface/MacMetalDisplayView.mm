@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2017-2021 DeSmuME team
+	Copyright (C) 2017-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -15,6 +15,10 @@
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if defined(__clang__) && (__clang_major__ < 8)
+	#error Metal support requires Metal Shader Language v1.1 from Xcode 8.0 or later.
+#endif
+
 #include "MacMetalDisplayView.h"
 #include "../cocoa_globals.h"
 
@@ -23,11 +27,13 @@
 @implementation MetalDisplayViewSharedData
 
 @synthesize device;
+@synthesize name;
+@synthesize description;
 @synthesize commandQueue;
 @synthesize defaultLibrary;
 
 @synthesize deposterizePipeline;
-@synthesize hudPipeline;
+@synthesize hudBGRAPipeline;
 @synthesize hudRGBAPipeline;
 @synthesize samplerHUDBox;
 @synthesize samplerHUDText;
@@ -55,22 +61,55 @@
 	}
 	
 	device = MTLCreateSystemDefaultDevice();
-	
 	if (device == nil)
 	{
+		NSLog(@"Metal: A Metal device could not be found.");
+		[self release];
+		return nil;
+	}
+	
+	defaultLibrary = [device newDefaultLibrary];
+	if (defaultLibrary == nil)
+	{
+		NSLog(@"Metal: The default.metallib could not be loaded!");
 		[self release];
 		return nil;
 	}
 	
 	[device retain];
 	
+	NSString *tempVersionStr = @"Metal - Unknown GPU Family";
+	const BOOL isRWTexSupported = [device supportsFeatureSet:(MTLFeatureSet)10002]; // MTLFeatureSet_macOS_ReadWriteTextureTier2
+	
+	if ([device supportsFeatureSet:(MTLFeatureSet)10005]) // MTLFeatureSet_macOS_GPUFamily2_v1
+	{
+		tempVersionStr = @"macOS Metal GPUFamily2_v1";
+	}
+	else if ([device supportsFeatureSet:(MTLFeatureSet)10004]) // MTLFeatureSet_macOS_GPUFamily1_v4
+	{
+		tempVersionStr = (isRWTexSupported) ? @"macOS Metal GPUFamily1_v4 w/ Tier2 R/W Textures" : @"macOS Metal GPUFamily1_v4";
+	}
+	else if ([device supportsFeatureSet:(MTLFeatureSet)10003]) // MTLFeatureSet_macOS_GPUFamily1_v3
+	{
+		tempVersionStr = (isRWTexSupported) ? @"macOS Metal GPUFamily1_v3 w/ Tier2 R/W Textures" : @"macOS Metal GPUFamily1_v3";
+	}
+	else if ([device supportsFeatureSet:(MTLFeatureSet)10001]) // MTLFeatureSet_macOS_GPUFamily1_v2
+	{
+		tempVersionStr = (isRWTexSupported) ? @"macOS Metal GPUFamily1_v2 w/ Tier2 R/W Textures" : @"macOS Metal GPUFamily1_v2";
+	}
+	else if ([device supportsFeatureSet:MTLFeatureSet_OSX_GPUFamily1_v1])
+	{
+		tempVersionStr = (isRWTexSupported) ? @"macOS Metal GPUFamily1_v1 w/ Tier2 R/W Textures" : @"macOS Metal GPUFamily1_v1";
+	}
+	
+	name = [[NSString alloc] initWithString:tempVersionStr];
+	description = [[NSString alloc] initWithString:[device name]];
+	
 	commandQueue = [device newCommandQueue];
 	[commandQueue setLabel:@"CQ_DeSmuME_VideoBlitter"];
 	
 	_fetchCommandQueue = [device newCommandQueue];
 	[_fetchCommandQueue setLabel:@"CQ_DeSmuME_FramebufferFetch"];
-	
-	defaultLibrary = [device newDefaultLibrary];
 	
 	MTLComputePipelineDescriptor *computePipelineDesc = [[MTLComputePipelineDescriptor alloc] init];
 	[computePipelineDesc setThreadGroupSizeIsMultipleOfThreadExecutionWidth:YES];
@@ -87,7 +126,7 @@
 	[computePipelineDesc setComputeFunction:[defaultLibrary newFunctionWithName:@"src_filter_deposterize"]];
 	deposterizePipeline = [[device newComputePipelineStateWithDescriptor:computePipelineDesc options:MTLPipelineOptionNone reflection:nil error:nil] retain];
 	
-#if defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
+#if HAVE_OSAVAILABLE && defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
 	if (@available(macOS 10.13, *))
 	{
 		[[[computePipelineDesc buffers] objectAtIndexedSubscript:0] setMutability:MTLMutabilityImmutable];
@@ -142,7 +181,7 @@
 	[hudPipelineDesc setVertexFunction:[defaultLibrary newFunctionWithName:@"hud_vertex"]];
 	[hudPipelineDesc setFragmentFunction:hudFragmentFunction];
 	
-#if defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
+#if HAVE_OSAVAILABLE && defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
 	if (@available(macOS 10.13, *))
 	{
 		[[[hudPipelineDesc vertexBuffers] objectAtIndexedSubscript:0] setMutability:MTLMutabilityImmutable];
@@ -151,11 +190,12 @@
 		[[[hudPipelineDesc vertexBuffers] objectAtIndexedSubscript:3] setMutability:MTLMutabilityImmutable];
 		[[[hudPipelineDesc vertexBuffers] objectAtIndexedSubscript:4] setMutability:MTLMutabilityImmutable];
 		[[[hudPipelineDesc vertexBuffers] objectAtIndexedSubscript:5] setMutability:MTLMutabilityImmutable];
+		[[[hudPipelineDesc fragmentBuffers] objectAtIndexedSubscript:0] setMutability:MTLMutabilityImmutable];
 	}
 #endif
 	
 	[[[hudPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:MTLPixelFormatBGRA8Unorm];
-	hudPipeline = [[device newRenderPipelineStateWithDescriptor:hudPipelineDesc error:nil] retain];
+	hudBGRAPipeline = [[device newRenderPipelineStateWithDescriptor:hudPipelineDesc error:nil] retain];
 	
 	[[[hudPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:MTLPixelFormatRGBA8Unorm];
 	hudRGBAPipeline = [[device newRenderPipelineStateWithDescriptor:hudPipelineDesc error:nil] retain];
@@ -285,7 +325,7 @@
 	[_fetch666ConvertOnlyPipeline release];
 	[_fetch888ConvertOnlyPipeline release];
 	[deposterizePipeline release];
-	[hudPipeline release];
+	[hudBGRAPipeline release];
 	[hudRGBAPipeline release];
 	[hudIndexBuffer release];
 	
@@ -320,6 +360,9 @@
 	
 	[samplerHUDBox release];
 	[samplerHUDText release];
+	
+	[name release];
+	[description release];
 	
 	[super dealloc];
 }
@@ -671,8 +714,8 @@
 {
 	id<MTLCommandBuffer> cb = [_fetchCommandQueue commandBufferWithUnretainedReferences];
 	
-	semaphore_wait([self semaphoreFramebufferPageAtIndex:index]);
-	[self setFramebufferState:ClientDisplayBufferState_Reading index:index];
+	semaphore_wait( GPUFetchObject->SemaphoreFramebufferPageAtIndex(index) );
+	GPUFetchObject->SetFramebufferState(ClientDisplayBufferState_Reading, index);
 	
 	id<MTLBlitCommandEncoder> bce = [cb blitCommandEncoder];
 	[self setBceFetch:bce];
@@ -690,8 +733,8 @@
 		[oldTexPair.main  release];
 		[oldTexPair.touch release];
 		
-		[self setFramebufferState:ClientDisplayBufferState_Idle index:index];
-		semaphore_signal([self semaphoreFramebufferPageAtIndex:index]);
+		GPUFetchObject->SetFramebufferState(ClientDisplayBufferState_Idle, index);
+		semaphore_signal( GPUFetchObject->SemaphoreFramebufferPageAtIndex(index) );
 	}];
 	
 	[cb commit];
@@ -742,33 +785,30 @@
 {
 	const size_t listSize = cdvFlushList.size();
 	
-	@autoreleasepool
+	id<MTLCommandBuffer> cbFlush = [commandQueue commandBufferWithUnretainedReferences];
+	id<MTLCommandBuffer> cbFinalize = [commandQueue commandBufferWithUnretainedReferences];
+	
+	for (size_t i = 0; i < listSize; i++)
 	{
-		id<MTLCommandBuffer> cbFlush = [commandQueue commandBufferWithUnretainedReferences];
-		id<MTLCommandBuffer> cbFinalize = [commandQueue commandBufferWithUnretainedReferences];
-		
-		for (size_t i = 0; i < listSize; i++)
-		{
-			ClientDisplay3DView *cdv = (ClientDisplay3DView *)cdvFlushList[i];
-			cdv->FlushView(cbFlush);
-		}
-		
-		for (size_t i = 0; i < listSize; i++)
-		{
-			ClientDisplay3DView *cdv = (ClientDisplay3DView *)cdvFlushList[i];
-			cdv->FinalizeFlush(cbFinalize, timeStampOutput->hostTime);
-		}
-		
-		[cbFlush enqueue];
-		[cbFinalize enqueue];
-		
-		[cbFlush commit];
-		[cbFinalize commit];
-		
-#ifdef DEBUG
-		[commandQueue insertDebugCaptureBoundary];
-#endif
+		ClientDisplay3DView *cdv = (ClientDisplay3DView *)cdvFlushList[i];
+		cdv->FlushView(cbFlush);
 	}
+	
+	for (size_t i = 0; i < listSize; i++)
+	{
+		ClientDisplay3DView *cdv = (ClientDisplay3DView *)cdvFlushList[i];
+		cdv->FinalizeFlush(cbFinalize, timeStampOutput->hostTime);
+	}
+	
+	[cbFlush enqueue];
+	[cbFinalize enqueue];
+	
+	[cbFlush commit];
+	[cbFinalize commit];
+	
+#ifdef DEBUG
+	[commandQueue insertDebugCaptureBoundary];
+#endif
 }
 
 @end
@@ -779,7 +819,6 @@
 @synthesize sharedData;
 @synthesize colorAttachment0Desc;
 @synthesize pixelScalePipeline;
-@synthesize outputRGBAPipeline;
 @synthesize outputDrawablePipeline;
 @synthesize drawableFormat;
 @synthesize bufCPUFilterDstMain;
@@ -822,9 +861,8 @@
 	[colorAttachment0Desc setTexture:nil];
 	
 	pixelScalePipeline = nil;
-	outputRGBAPipeline = nil;
 	outputDrawablePipeline = nil;
-	drawableFormat = MTLPixelFormatInvalid;
+	drawableFormat = MTLPixelFormatRGBA8Unorm;
 	
 	_texDisplaySrcDeposterize[NDSDisplayID_Main][0]  = nil;
 	_texDisplaySrcDeposterize[NDSDisplayID_Touch][0] = nil;
@@ -866,7 +904,7 @@
 	{
 		_semRenderBuffers[i] = dispatch_semaphore_create(1);
 		_renderBufferState[i] = ClientDisplayBufferState_Idle;
-		_spinlockRenderBufferStates[i] = OS_SPINLOCK_INIT;
+		_unfairlockRenderBufferStates[i] = apple_unfairlock_create();
 	}
 	
 	MTLViewport newViewport;
@@ -918,7 +956,6 @@
 	[texPairProcess.touch release];
 	
 	[self setPixelScalePipeline:nil];
-	[self setOutputRGBAPipeline:nil];
 	[self setOutputDrawablePipeline:nil];
 	[self setTexHUDCharMap:nil];
 	
@@ -927,6 +964,7 @@
 	for (size_t i = 0; i < RENDER_BUFFER_COUNT; i++)
 	{
 		dispatch_release(_semRenderBuffers[i]);
+		apple_unfairlock_destroy(_unfairlockRenderBufferStates[i]);
 	}
 	
 	[super dealloc];
@@ -1120,22 +1158,22 @@
 			break;
 			
 		case OutputFilterTypeID_BicubicBSpline:
-			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_bicubic_vertex"]];
+			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_sampletex16_vertex"]];
 			[outputPipelineDesc setFragmentFunction:[[sharedData defaultLibrary] newFunctionWithName:@"output_filter_bicubic_bspline"]];
 			break;
 			
 		case OutputFilterTypeID_BicubicMitchell:
-			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_bicubic_vertex"]];
+			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_sampletex16_vertex"]];
 			[outputPipelineDesc setFragmentFunction:[[sharedData defaultLibrary] newFunctionWithName:@"output_filter_bicubic_mitchell_netravali"]];
 			break;
 			
 		case OutputFilterTypeID_Lanczos2:
-			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_bicubic_vertex"]];
+			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_sampletex16_vertex"]];
 			[outputPipelineDesc setFragmentFunction:[[sharedData defaultLibrary] newFunctionWithName:@"output_filter_lanczos2"]];
 			break;
 			
 		case OutputFilterTypeID_Lanczos3:
-			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_bicubic_vertex"]];
+			[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_sampletex16_vertex"]];
 			[outputPipelineDesc setFragmentFunction:[[sharedData defaultLibrary] newFunctionWithName:@"output_filter_lanczos3"]];
 			break;
 			
@@ -1146,16 +1184,10 @@
 			break;
 	}
 	
-	[[[outputPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:MTLPixelFormatRGBA8Unorm];
-	[self setOutputRGBAPipeline:[[sharedData device] newRenderPipelineStateWithDescriptor:outputPipelineDesc error:nil]];
+	[[[outputPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:[self drawableFormat]];
+	[self setOutputDrawablePipeline:[[sharedData device] newRenderPipelineStateWithDescriptor:outputPipelineDesc error:nil]];
 	
-	if ([self drawableFormat] != MTLPixelFormatInvalid)
-	{
-		[[[outputPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:[self drawableFormat]];
-		[self setOutputDrawablePipeline:[[sharedData device] newRenderPipelineStateWithDescriptor:outputPipelineDesc error:nil]];
-	}
-	
-#if defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
+#if HAVE_OSAVAILABLE && defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
 	if (@available(macOS 10.13, *))
 	{
 		[[[outputPipelineDesc vertexBuffers] objectAtIndexedSubscript:0] setMutability:MTLMutabilityImmutable];
@@ -1163,6 +1195,7 @@
 		[[[outputPipelineDesc vertexBuffers] objectAtIndexedSubscript:2] setMutability:MTLMutabilityImmutable];
 		[[[outputPipelineDesc vertexBuffers] objectAtIndexedSubscript:3] setMutability:MTLMutabilityImmutable];
 		[[[outputPipelineDesc fragmentBuffers] objectAtIndexedSubscript:0] setMutability:MTLMutabilityImmutable];
+		[[[outputPipelineDesc fragmentBuffers] objectAtIndexedSubscript:1] setMutability:MTLMutabilityImmutable];
 	}
 #endif
 	
@@ -1181,7 +1214,7 @@
 	[outputPipelineDesc setVertexFunction:[[sharedData defaultLibrary] newFunctionWithName:@"display_output_vertex"]];
 	[outputPipelineDesc setFragmentFunction:[[sharedData defaultLibrary] newFunctionWithName:@"output_filter_bilinear"]];
 	
-#if defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
+#if HAVE_OSAVAILABLE && defined(MAC_OS_X_VERSION_10_13) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13)
 	if (@available(macOS 10.13, *))
 	{
 		[[[outputPipelineDesc vertexBuffers] objectAtIndexedSubscript:0] setMutability:MTLMutabilityImmutable];
@@ -1189,18 +1222,12 @@
 		[[[outputPipelineDesc vertexBuffers] objectAtIndexedSubscript:2] setMutability:MTLMutabilityImmutable];
 		[[[outputPipelineDesc vertexBuffers] objectAtIndexedSubscript:3] setMutability:MTLMutabilityImmutable];
 		[[[outputPipelineDesc fragmentBuffers] objectAtIndexedSubscript:0] setMutability:MTLMutabilityImmutable];
+		[[[outputPipelineDesc fragmentBuffers] objectAtIndexedSubscript:1] setMutability:MTLMutabilityImmutable];
 	}
 #endif
 	
-	[[[outputPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:MTLPixelFormatRGBA8Unorm];
-	outputRGBAPipeline = [[[sharedData device] newRenderPipelineStateWithDescriptor:outputPipelineDesc error:nil] retain];
-	
-	if ([self drawableFormat] != MTLPixelFormatInvalid)
-	{
-		[[[outputPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:[self drawableFormat]];
-		outputDrawablePipeline = [[[sharedData device] newRenderPipelineStateWithDescriptor:outputPipelineDesc error:nil] retain];
-	}
-	
+	[[[outputPipelineDesc colorAttachments] objectAtIndexedSubscript:0] setPixelFormat:[self drawableFormat]];
+	outputDrawablePipeline = [[[sharedData device] newRenderPipelineStateWithDescriptor:outputPipelineDesc error:nil] retain];
 	[outputPipelineDesc release];
 	
 	// Set up processing textures.
@@ -1544,10 +1571,10 @@
 						
 						cb = [self newCommandBuffer];
 						
+						dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main), DISPATCH_TIME_FOREVER);
+						
 						[cb addScheduledHandler:^(id<MTLCommandBuffer> block) {
-							dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main), DISPATCH_TIME_FOREVER);
 							vfMain->RunFilter();
-							dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main));
 						}];
 						
 						bce = [cb blitCommandEncoder];
@@ -1570,6 +1597,10 @@
 						}
 						
 						[bce endEncoding];
+						
+						[cb addCompletedHandler:^(id<MTLCommandBuffer> block) {
+							dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main));
+						}];
 					}
 				}
 				
@@ -1611,10 +1642,10 @@
 						
 						cb = [self newCommandBuffer];
 						
+						dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch), DISPATCH_TIME_FOREVER);
+						
 						[cb addScheduledHandler:^(id<MTLCommandBuffer> block) {
-							dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch), DISPATCH_TIME_FOREVER);
 							vfTouch->RunFilter();
-							dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch));
 						}];
 						
 						bce = [cb blitCommandEncoder];
@@ -1632,6 +1663,10 @@
 						newTexProcess.touch = _texDisplayPixelScaler[NDSDisplayID_Touch];
 						
 						[bce endEncoding];
+						
+						[cb addCompletedHandler:^(id<MTLCommandBuffer> block) {
+							dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch));
+						}];
 					}
 				}
 				
@@ -1659,10 +1694,10 @@
 				
 				if (shouldProcessDisplayMain && (_texDisplayPixelScaler[NDSDisplayID_Main] != nil))
 				{
+					dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main), DISPATCH_TIME_FOREVER);
+					
 					[cb addScheduledHandler:^(id<MTLCommandBuffer> block) {
-						dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main), DISPATCH_TIME_FOREVER);
 						vfMain->RunFilter();
-						dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main));
 					}];
 					
 					id<MTLBlitCommandEncoder> bce = [cb blitCommandEncoder];
@@ -1679,6 +1714,10 @@
 					
 					[bce endEncoding];
 					
+					[cb addCompletedHandler:^(id<MTLCommandBuffer> block) {
+						dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Main));
+					}];
+					
 					[cb commit];
 					cb = [self newCommandBuffer];
 					
@@ -1692,10 +1731,10 @@
 				
 				if (shouldProcessDisplayTouch && (_texDisplayPixelScaler[NDSDisplayID_Touch] != nil))
 				{
+					dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch), DISPATCH_TIME_FOREVER);
+					
 					[cb addScheduledHandler:^(id<MTLCommandBuffer> block) {
-						dispatch_semaphore_wait(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch), DISPATCH_TIME_FOREVER);
 						vfTouch->RunFilter();
-						dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch));
 					}];
 					
 					id<MTLBlitCommandEncoder> bce = [cb blitCommandEncoder];
@@ -1711,6 +1750,10 @@
 					  destinationOrigin:MTLOriginMake(0, 0, 0)];
 					
 					[bce endEncoding];
+					
+					[cb addCompletedHandler:^(id<MTLCommandBuffer> block) {
+						dispatch_semaphore_signal(((MacMetalDisplayPresenter *)cdp)->GetCPUFilterSemaphore(NDSDisplayID_Touch));
+					}];
 					
 					newTexProcess.touch = _texDisplayPixelScaler[NDSDisplayID_Touch];
 				}
@@ -1954,6 +1997,7 @@
 					texDisplays:(MetalTexturePair)texDisplay
 						   mrfi:(MetalRenderFrameInfo)mrfi
 						doYFlip:(BOOL)willFlip
+					   doSwapRB:(BOOL)willSwapRB
 {
 	// Generate the command encoder.
 	id<MTLRenderCommandEncoder> rce = [cb renderCommandEncoderWithDescriptor:_outputRenderPassDesc];
@@ -1977,6 +2021,7 @@
 	[rce setVertexBytes:_texCoordBuffer length:sizeof(_texCoordBuffer) atIndex:1];
 	[rce setVertexBytes:&_cdvPropertiesBuffer length:sizeof(_cdvPropertiesBuffer) atIndex:2];
 	[rce setVertexBytes:&doYFlip length:sizeof(uint8_t) atIndex:3];
+	[rce setFragmentBytes:&willSwapRB length:sizeof(uint8_t) atIndex:1];
 	
 	switch (cdp->GetPresenterProperties().mode)
 	{
@@ -2059,6 +2104,7 @@
 		[rce setVertexBytes:&_cdvPropertiesBuffer length:sizeof(_cdvPropertiesBuffer) atIndex:3];
 		[rce setVertexBytes:&doYFlip length:sizeof(uint8_t) atIndex:4];
 		[rce setFragmentTexture:[self texHUDCharMap] atIndex:0];
+		[rce setFragmentBytes:&willSwapRB length:sizeof(uint8_t) atIndex:0];
 		
 		// First, draw the inputs.
 		if (mrfi.willDrawHUDInput)
@@ -2117,18 +2163,18 @@
 
 - (ClientDisplayBufferState) renderBufferStateAtIndex:(uint8_t)index
 {
-	OSSpinLockLock(&_spinlockRenderBufferStates[index]);
+	apple_unfairlock_lock(_unfairlockRenderBufferStates[index]);
 	const ClientDisplayBufferState bufferState = _renderBufferState[index];
-	OSSpinLockUnlock(&_spinlockRenderBufferStates[index]);
+	apple_unfairlock_unlock(_unfairlockRenderBufferStates[index]);
 	
 	return bufferState;
 }
 
 - (void) setRenderBufferState:(ClientDisplayBufferState)bufferState index:(uint8_t)index
 {
-	OSSpinLockLock(&_spinlockRenderBufferStates[index]);
+	apple_unfairlock_lock(_unfairlockRenderBufferStates[index]);
 	_renderBufferState[index] = bufferState;
-	OSSpinLockUnlock(&_spinlockRenderBufferStates[index]);
+	apple_unfairlock_unlock(_unfairlockRenderBufferStates[index]);
 }
 
 - (void) renderToBuffer:(uint32_t *)dstBuffer
@@ -2142,7 +2188,12 @@
 	
 	@autoreleasepool
 	{
-		MTLTextureDescriptor *texRenderDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+		// Note that this method should ALWAYS return 32-bit RGBA format, not BGRA format.
+		MTLPixelFormat viewDrawableFormat = [self drawableFormat];
+		BOOL willSwapRB = (viewDrawableFormat == MTLPixelFormatBGRA8Unorm) ? YES : NO;
+		id<MTLRenderPipelineState> hudPipelineState = (willSwapRB) ? [sharedData hudBGRAPipeline] : [sharedData hudRGBAPipeline];
+		
+		MTLTextureDescriptor *texRenderDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:viewDrawableFormat
 																								 width:clientWidth
 																								height:clientHeight
 																							 mipmapped:NO];
@@ -2161,11 +2212,12 @@
 		const MetalRenderFrameInfo mrfi = [self renderFrameInfo];
 		
 		[self renderForCommandBuffer:cb
-				 outputPipelineState:[self outputRGBAPipeline]
-					hudPipelineState:[sharedData hudRGBAPipeline]
+				 outputPipelineState:[self outputDrawablePipeline]
+					hudPipelineState:hudPipelineState
 						 texDisplays:texProcess
 								mrfi:mrfi
-							 doYFlip:NO];
+							 doYFlip:NO
+							doSwapRB:willSwapRB];
 		
 		id<MTLBlitCommandEncoder> bce = [cb blitCommandEncoder];
 		
@@ -2224,7 +2276,7 @@
 	
 	_cdv = NULL;
 	_semDrawable = dispatch_semaphore_create(3);
-	_currentDrawable = nil;
+	_drawableQueue = new std::queue< id<CAMetalDrawable> >;
 	layerDrawable0 = nil;
 	layerDrawable1 = nil;
 	layerDrawable2 = nil;
@@ -2253,6 +2305,8 @@
 	[self setLayerDrawable2:nil];
 	dispatch_release(_semDrawable);
 	
+	delete _drawableQueue;
+	
 	[_displayTexturePair.main  release];
 	[_displayTexturePair.touch release];
 	
@@ -2275,7 +2329,6 @@
 	id<CAMetalDrawable> drawable = [self nextDrawable];
 	if (drawable == nil)
 	{
-		_currentDrawable = nil;
 		dispatch_semaphore_signal(_semDrawable);
 		return;
 	}
@@ -2295,6 +2348,8 @@
 		}
 	}
 	
+	_drawableQueue->push(drawable);
+	
 	id<MTLTexture> texDrawable = [drawable texture];
 	[[presenterObject colorAttachment0Desc] setTexture:texDrawable];
 	
@@ -2311,13 +2366,15 @@
 	[oldTexTouch release];
 	
 	const MetalRenderFrameInfo mrfi = [presenterObject renderFrameInfo];
+	id<MTLRenderPipelineState> hudPipelineState = ([presenterObject drawableFormat] == MTLPixelFormatBGRA8Unorm) ? [[presenterObject sharedData] hudBGRAPipeline] : [[presenterObject sharedData] hudRGBAPipeline];
 	
 	[presenterObject renderForCommandBuffer:cb
 						outputPipelineState:[presenterObject outputDrawablePipeline]
-						   hudPipelineState:[[presenterObject sharedData] hudPipeline]
+						   hudPipelineState:hudPipelineState
 								texDisplays:_displayTexturePair
 									   mrfi:mrfi
-									doYFlip:NO];
+									doYFlip:NO
+								   doSwapRB:NO];
 	
 	[cb addScheduledHandler:^(id<MTLCommandBuffer> block) {
 		[presenterObject setRenderBufferState:ClientDisplayBufferState_Reading index:mrfi.renderIndex];
@@ -2326,18 +2383,18 @@
 	[cb addCompletedHandler:^(id<MTLCommandBuffer> block) {
 		[presenterObject renderFinishAtIndex:mrfi.renderIndex];
 	}];
-	
-	_currentDrawable = drawable;
 }
 
 - (void) presentDrawableWithCommandBuffer:(id<MTLCommandBuffer>)cb outputTime:(uint64_t)outputTime
 {
-	id<CAMetalDrawable> drawable = _currentDrawable;
-	if (drawable == nil)
+	if (_drawableQueue->empty())
 	{
 		printf("Metal: No drawable was assigned!\n");
 		return;
 	}
+	
+	id<CAMetalDrawable> drawable = _drawableQueue->front();
+	_drawableQueue->pop();
 	
 	// Apple's documentation might seem to suggest that [MTLCommandBuffer presentDrawable:atTime:]
 	// and [MTLDrawable presentAtTime:] inside of a [MTLCommandBuffer addScheduledHandler:] block
@@ -2352,7 +2409,21 @@
 	[cb addScheduledHandler:^(id<MTLCommandBuffer> block) {
 		@autoreleasepool
 		{
-			[drawable presentAtTime:(CFTimeInterval)outputTime / 1000000000.0];
+			// Let's try [MTLDrawable present] instead of [MTLDrawable presentAtTime:] in
+			// an effort to reduce microstuttering even further. Testing on various Metal
+			// machines shows a minor, but still slightly noticeable, reduction in
+			// microstuttering.
+			//
+			// This probably works because this method is called in response to a
+			// CVDisplayLink output callback, which is already expecting to see a frame
+			// very very soon. [MTLDrawable presentAtTime:] does have a little more
+			// overhead than [MTLDrawable present], and so it is possible that the former
+			// method might be pushing the rendered frame ahead by up to 2 frames, whereas
+			// the latter method will always push the rendered frame at most 1 frame ahead.
+			// This best explains the observed behavior in certain rendering scenarios.
+			
+			//[drawable presentAtTime:(CFTimeInterval)outputTime / 1000000000.0];
+			[drawable present];
 			
 			if (drawable == [self layerDrawable0])
 			{
@@ -2419,6 +2490,13 @@ MacMetalFetchObject::MacMetalFetchObject()
 	}
 	
 	_clientData = [[MetalDisplayViewSharedData alloc] init];
+	
+	if (_clientData != nil)
+	{
+		_id = GPUClientFetchObjectID_MacMetal;
+		strlcpy(_name, [[(MetalDisplayViewSharedData *)_clientData name] cStringUsingEncoding:NSUTF8StringEncoding], sizeof(_name) - 1);
+		strlcpy(_description, [[(MetalDisplayViewSharedData *)_clientData description] cStringUsingEncoding:NSUTF8StringEncoding], sizeof(_description) - 1);
+	}
 }
 
 MacMetalFetchObject::~MacMetalFetchObject()
@@ -2448,6 +2526,7 @@ MacMetalFetchObject::~MacMetalFetchObject()
 void MacMetalFetchObject::Init()
 {
 	[(MacClientSharedObject *)this->_clientData setGPUFetchObject:this];
+	this->MacGPUFetchObjectAsync::Init();
 }
 
 void MacMetalFetchObject::CopyFromSrcClone(uint32_t *dstBufferPtr, const NDSDisplayID displayID, const u8 bufferIndex)
@@ -2465,13 +2544,9 @@ void MacMetalFetchObject::SetFetchBuffers(const NDSDisplayInfo &currentDisplayIn
 
 void MacMetalFetchObject::FetchFromBufferIndex(const u8 index)
 {
-	MacClientSharedObject *sharedViewObject = (MacClientSharedObject *)this->_clientData;
-	this->_useDirectToCPUFilterPipeline = ([sharedViewObject numberViewsUsingDirectToCPUFiltering] > 0);
+	this->_useDirectToCPUFilterPipeline = (this->GetNumberViewsUsingDirectToCPUFiltering() > 0);
 	
-	@autoreleasepool
-	{
-		[(MetalDisplayViewSharedData *)this->_clientData fetchFromBufferIndex:index];
-	}
+	[(MetalDisplayViewSharedData *)this->_clientData fetchFromBufferIndex:index];
 }
 
 void MacMetalFetchObject::_FetchNativeDisplayByID(const NDSDisplayID displayID, const u8 bufferIndex)
@@ -2500,6 +2575,11 @@ void MacMetalFetchObject::_FetchCustomDisplayByID(const NDSDisplayID displayID, 
 	}
 	
 	[(MetalDisplayViewSharedData *)this->_clientData fetchCustomDisplayByID:displayID bufferIndex:bufferIndex blitCommandEncoder:[(MetalDisplayViewSharedData *)this->_clientData bceFetch]];
+}
+
+void MacMetalFetchObject::FlushMultipleViews(const std::vector<ClientDisplay3DView *> &cdvFlushList, const CVTimeStamp *timeStampNow, const CVTimeStamp *timeStampOutput)
+{
+	[(MetalDisplayViewSharedData *)this->_clientData flushMultipleViews:cdvFlushList timeStampNow:timeStampNow timeStampOutput:timeStampOutput];
 }
 
 #pragma mark -
@@ -2705,12 +2785,13 @@ MacMetalDisplayView::MacMetalDisplayView(MacClientSharedObject *sharedObject)
 MacMetalDisplayView::~MacMetalDisplayView()
 {
 	[this->_caLayer release];
+	apple_unfairlock_destroy(_unfairlockViewNeedsFlush);
 }
 
 void MacMetalDisplayView::__InstanceInit(MacClientSharedObject *sharedObject)
 {
 	_allowViewUpdates = false;
-	_spinlockViewNeedsFlush = OS_SPINLOCK_INIT;
+	_unfairlockViewNeedsFlush = apple_unfairlock_create();
 	
 	MacMetalDisplayPresenter *newMetalPresenter = new MacMetalDisplayPresenter(sharedObject);
 	_presenter = newMetalPresenter;
@@ -2727,9 +2808,9 @@ void MacMetalDisplayView::Init()
 
 bool MacMetalDisplayView::GetViewNeedsFlush()
 {
-	OSSpinLockLock(&this->_spinlockViewNeedsFlush);
+	apple_unfairlock_lock(this->_unfairlockViewNeedsFlush);
 	const bool viewNeedsFlush = this->_viewNeedsFlush;
-	OSSpinLockUnlock(&this->_spinlockViewNeedsFlush);
+	apple_unfairlock_unlock(this->_unfairlockViewNeedsFlush);
 	
 	return viewNeedsFlush;
 }
@@ -2754,24 +2835,24 @@ void MacMetalDisplayView::SetViewNeedsFlush()
 		this->SetAllowViewFlushes(true);
 		this->_presenter->UpdateLayout();
 		
-		OSSpinLockLock(&this->_spinlockViewNeedsFlush);
+		apple_unfairlock_lock(this->_unfairlockViewNeedsFlush);
 		this->_viewNeedsFlush = true;
-		OSSpinLockUnlock(&this->_spinlockViewNeedsFlush);
+		apple_unfairlock_unlock(this->_unfairlockViewNeedsFlush);
 	}
 }
 
 void MacMetalDisplayView::SetAllowViewFlushes(bool allowFlushes)
 {
 	CGDirectDisplayID displayID = (CGDirectDisplayID)this->GetDisplayViewID();
-	MacClientSharedObject *sharedData = ((MacMetalDisplayPresenter *)this->_presenter)->GetSharedData();
-	[sharedData displayLinkStartUsingID:displayID];
+	MacGPUFetchObjectDisplayLink &fetchObj = (MacGPUFetchObjectDisplayLink &)this->_presenter->GetFetchObject();
+	fetchObj.DisplayLinkStartUsingID(displayID);
 }
 
 void MacMetalDisplayView::FlushView(void *userData)
 {
-	OSSpinLockLock(&this->_spinlockViewNeedsFlush);
+	apple_unfairlock_lock(this->_unfairlockViewNeedsFlush);
 	this->_viewNeedsFlush = false;
-	OSSpinLockUnlock(&this->_spinlockViewNeedsFlush);
+	apple_unfairlock_unlock(this->_unfairlockViewNeedsFlush);
 	
 	[(DisplayViewMetalLayer *)this->_caLayer renderToDrawableUsingCommandBuffer:(id<MTLCommandBuffer>)userData];
 }

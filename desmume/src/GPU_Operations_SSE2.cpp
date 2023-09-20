@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2021 DeSmuME team
+	Copyright (C) 2021-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 #else
 
 #include "GPU_Operations_SSE2.h"
-#include <emmintrin.h>
+#include "./utils/colorspacehandler/colorspacehandler_SSE2.h"
 
 
 static const ColorOperation_SSE2 colorop_vec;
@@ -548,18 +548,18 @@ static FORCEINLINE void CopyLineReduce(void *__restrict dst, const void *__restr
 #else
 				srcPix[0] = _mm_shuffle_epi32(srcPix[0], 0xD8);
 				srcPix[1] = _mm_shuffle_epi32(srcPix[1], 0xD8);
-				srcPix[2] = _mm_shuffle_epi32(srcPix[2], 0xD8);
-				srcPix[3] = _mm_shuffle_epi32(srcPix[3], 0xD8);
+				srcPix[2] = _mm_shuffle_epi32(srcPix[2], 0x8D);
+				srcPix[3] = _mm_shuffle_epi32(srcPix[3], 0x8D);
 				
-				srcPix[0] = _mm_unpacklo_epi32(srcPix[0], srcPix[1]);
-				srcPix[1] = _mm_unpacklo_epi32(srcPix[2], srcPix[3]);
+				srcPix[0] = _mm_or_si128(srcPix[0], srcPix[2]);
+				srcPix[1] = _mm_or_si128(srcPix[1], srcPix[3]);
 				
-				srcPix[0] = _mm_shuffle_epi32(srcPix[0], 0xD8);
-				srcPix[1] = _mm_shuffle_epi32(srcPix[1], 0x8D);
-				
-				srcPix[0] = _mm_or_si128(srcPix[0], srcPix[1]);
 				srcPix[0] = _mm_shufflelo_epi16(srcPix[0], 0xD8);
 				srcPix[0] = _mm_shufflehi_epi16(srcPix[0], 0xD8);
+				srcPix[1] = _mm_shufflelo_epi16(srcPix[1], 0x8D);
+				srcPix[1] = _mm_shufflehi_epi16(srcPix[1], 0x8D);
+				
+				srcPix[0] = _mm_or_si128(srcPix[0], srcPix[1]);
 				
 				_mm_store_si128((__m128i *)dst + dstX, srcPix[0]);
 #endif
@@ -2287,7 +2287,7 @@ void GPUEngineBase::_MosaicLine(GPUEngineCompositorInfo &compInfo)
 }
 
 template <GPUCompositorMode COMPOSITORMODE, NDSColorFormat OUTPUTFORMAT, bool WILLPERFORMWINDOWTEST>
-void GPUEngineBase::_CompositeNativeLineOBJ_LoopOp(GPUEngineCompositorInfo &compInfo, const u16 *__restrict srcColorNative16, const FragmentColor *__restrict srcColorNative32)
+void GPUEngineBase::_CompositeNativeLineOBJ_LoopOp(GPUEngineCompositorInfo &compInfo, const u16 *__restrict srcColorNative16, const Color4u8 *__restrict srcColorNative32)
 {
 	static const size_t step = sizeof(v128u8);
 	
@@ -2530,10 +2530,10 @@ size_t GPUEngineBase::_CompositeVRAMLineDeferred_LoopOp(GPUEngineCompositorInfo 
 			case NDSColorFormat_BGR888_Rev:
 			{
 				const v128u32 src32[4] = {
-					_mm_load_si128((v128u32 *)((FragmentColor *)vramColorPtr + i) + 0),
-					_mm_load_si128((v128u32 *)((FragmentColor *)vramColorPtr + i) + 1),
-					_mm_load_si128((v128u32 *)((FragmentColor *)vramColorPtr + i) + 2),
-					_mm_load_si128((v128u32 *)((FragmentColor *)vramColorPtr + i) + 3)
+					_mm_load_si128((v128u32 *)((Color4u8 *)vramColorPtr + i) + 0),
+					_mm_load_si128((v128u32 *)((Color4u8 *)vramColorPtr + i) + 1),
+					_mm_load_si128((v128u32 *)((Color4u8 *)vramColorPtr + i) + 2),
+					_mm_load_si128((v128u32 *)((Color4u8 *)vramColorPtr + i) + 3)
 				};
 				
 				if (LAYERTYPE != GPULayerType_OBJ)
@@ -2688,7 +2688,7 @@ void GPUEngineBase::_PerformWindowTestingNative(GPUEngineCompositorInfo &compInf
 }
 
 template <GPUCompositorMode COMPOSITORMODE, NDSColorFormat OUTPUTFORMAT, bool WILLPERFORMWINDOWTEST>
-size_t GPUEngineA::_RenderLine_Layer3D_LoopOp(GPUEngineCompositorInfo &compInfo, const u8 *__restrict windowTestPtr, const u8 *__restrict colorEffectEnablePtr, const FragmentColor *__restrict srcLinePtr)
+size_t GPUEngineA::_RenderLine_Layer3D_LoopOp(GPUEngineCompositorInfo &compInfo, const u8 *__restrict windowTestPtr, const u8 *__restrict colorEffectEnablePtr, const Color4u8 *__restrict srcLinePtr)
 {
 	static const size_t step = sizeof(v128u8);
 	

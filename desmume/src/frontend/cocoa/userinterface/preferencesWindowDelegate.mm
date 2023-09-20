@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2011 Roger Manuel
-	Copyright (C) 2012-2021 DeSmuME Team
+	Copyright (C) 2012-2023 DeSmuME Team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 #import "preferencesWindowDelegate.h"
 #import "EmuControllerDelegate.h"
+#import "cheatWindowDelegate.h"
 
 #import "cocoa_core.h"
 #import "cocoa_GPU.h"
@@ -35,7 +36,6 @@
 #endif
 
 
-#pragma mark -
 @implementation DisplayPreviewView
 
 @dynamic filtersPreferGPU;
@@ -179,7 +179,7 @@
 {
 	CGLContextObj prevContext = CGLGetCurrentContext();
 	CGLSetCurrentContext(cglDisplayContext);
-	oglImage->SetPixelScalerOGL(scalerID);
+	oglImage->SetPixelScalerOGL((int)scalerID);
 	oglImage->ProcessOGL();
 	CGLSetCurrentContext(prevContext);
 }
@@ -193,7 +193,7 @@
 {
 	CGLContextObj prevContext = CGLGetCurrentContext();
 	CGLSetCurrentContext(cglDisplayContext);
-	oglImage->SetOutputFilterOGL(outputFilterID);
+	oglImage->SetOutputFilterOGL((int)outputFilterID);
 	CGLSetCurrentContext(prevContext);
 }
 
@@ -218,7 +218,7 @@
 	{
 		const uint32_t color = bitmapData[i];
 		
-#if defined(__i386__) || defined(__x86_64__)
+#ifndef MSB_FIRST
 		bitmapData[i]	=           0xFF000000         | // lA
 						  ((color & 0x00FF0000) >> 16) | // lB -> lR
 						   (color & 0x0000FF00)        | // lG
@@ -235,7 +235,7 @@
 	// Send the NSImage to OpenGL.
 	CGLContextObj prevContext = CGLGetCurrentContext();
 	CGLSetCurrentContext(cglDisplayContext);
-	oglImage->LoadFrameOGL(bitmapData, 0, 0, previewWidth, previewHeight);
+	oglImage->LoadFrameOGL(bitmapData, 0, 0, (GLsizei)previewWidth, (GLsizei)previewHeight);
 	oglImage->ProcessOGL();
 	CGLSetCurrentContext(prevContext);
 }
@@ -293,7 +293,6 @@
 @synthesize emuController;
 @synthesize prefWindowController;
 @synthesize cheatWindowController;
-@synthesize cheatDatabaseController;
 
 @synthesize toolbarItemGeneral;
 @synthesize toolbarItemInput;
@@ -344,12 +343,18 @@
 	subnetMaskString_AP2 = @"0.0.0.0";
 	subnetMaskString_AP3 = @"0.0.0.0";
 	
+	_isRunningDarkMode = [CocoaDSUtil determineDarkModeAppearance];
+	
 	// Load the volume icons.
-	iconVolumeFull		= [[NSImage imageNamed:@"Icon_VolumeFull_16x16"] retain];
-	iconVolumeTwoThird	= [[NSImage imageNamed:@"Icon_VolumeTwoThird_16x16"] retain];
-	iconVolumeOneThird	= [[NSImage imageNamed:@"Icon_VolumeOneThird_16x16"] retain];
-	iconVolumeMute		= [[NSImage imageNamed:@"Icon_VolumeMute_16x16"] retain];
-	[bindings setObject:iconVolumeFull forKey:@"volumeIconImage"];
+	iconVolumeFull       = [[NSImage imageNamed:@"Icon_VolumeFull_16x16"] retain];
+	iconVolumeTwoThird   = [[NSImage imageNamed:@"Icon_VolumeTwoThird_16x16"] retain];
+	iconVolumeOneThird   = [[NSImage imageNamed:@"Icon_VolumeOneThird_16x16"] retain];
+	iconVolumeMute       = [[NSImage imageNamed:@"Icon_VolumeMute_16x16"] retain];
+	iconVolumeFullDM     = [[NSImage imageNamed:@"Icon_VolumeFull_DarkMode_16x16"] retain];
+	iconVolumeTwoThirdDM = [[NSImage imageNamed:@"Icon_VolumeTwoThird_DarkMode_16x16"] retain];
+	iconVolumeOneThirdDM = [[NSImage imageNamed:@"Icon_VolumeOneThird_DarkMode_16x16"] retain];
+	iconVolumeMuteDM     = [[NSImage imageNamed:@"Icon_VolumeMute_DarkMode_16x16"] retain];
+	[bindings setObject:((_isRunningDarkMode) ? iconVolumeFullDM : iconVolumeFull) forKey:@"volumeIconImage"];
 	
 	prefViewDict = nil;
 	
@@ -362,6 +367,10 @@
 	[iconVolumeTwoThird release];
 	[iconVolumeOneThird release];
 	[iconVolumeMute release];
+	[iconVolumeFullDM release];
+	[iconVolumeTwoThirdDM release];
+	[iconVolumeOneThirdDM release];
+	[iconVolumeMuteDM release];
 	[bindings release];
 	[prefViewDict release];
 	
@@ -410,23 +419,26 @@
 	[panel setTitle:NSSTRING_TITLE_SELECT_ROM_PANEL];
 	NSArray *fileTypes = [NSArray arrayWithObjects:@FILE_EXT_ROM_DS, @FILE_EXT_ROM_GBA, nil];
 	
-	// The NSOpenPanel/NSSavePanel method -(void)beginSheetForDirectory:file:types:modalForWindow:modalDelegate:didEndSelector:contextInfo
-	// is deprecated in Mac OS X v10.6.
 #if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_5
-	[panel setAllowedFileTypes:fileTypes];
-	[panel beginSheetModalForWindow:window
-				  completionHandler:^(NSInteger result) {
-					  [self chooseRomForAutoloadDidEnd:panel returnCode:result contextInfo:nil];
-				  } ];
-#else
-	[panel beginSheetForDirectory:nil
-							 file:nil
-							types:fileTypes
-				   modalForWindow:window
-					modalDelegate:self
-				   didEndSelector:@selector(chooseRomForAutoloadDidEnd:returnCode:contextInfo:)
-					  contextInfo:nil];
+	if (IsOSXVersionSupported(10, 6, 0))
+	{
+		[panel setAllowedFileTypes:fileTypes];
+		[panel beginSheetModalForWindow:window
+					  completionHandler:^(NSInteger result) {
+						  [self chooseRomForAutoloadDidEnd:panel returnCode:(int)result contextInfo:nil];
+					  } ];
+	}
+	else
 #endif
+	{
+		SILENCE_DEPRECATION_MACOS_10_6( [panel beginSheetForDirectory:nil
+																 file:nil
+																types:fileTypes
+													   modalForWindow:window
+														modalDelegate:self
+													   didEndSelector:@selector(chooseRomForAutoloadDidEnd:returnCode:contextInfo:)
+														  contextInfo:nil] );
+	}
 }
 
 - (void) chooseRomForAutoloadDidEnd:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
@@ -438,7 +450,7 @@
 	[[NSUserDefaults standardUserDefaults] setInteger:ROMAUTOLOADOPTION_CHOOSE_ROM forKey:@"General_AutoloadROMOption"];
 	[[NSUserDefaults standardUserDefaults] synchronize];
 	
-	if (returnCode == NSCancelButton)
+	if (returnCode == GUI_RESPONSE_CANCEL)
 	{
 		[[NSUserDefaults standardUserDefaults] setInteger:ROMAUTOLOADOPTION_LOAD_NONE forKey:@"General_AutoloadROMOption"];
 		return;
@@ -468,30 +480,33 @@
 	[panel setTitle:NSSTRING_TITLE_SELECT_ADVANSCENE_DB_PANEL];
 	NSArray *fileTypes = [NSArray arrayWithObjects:@FILE_EXT_ADVANSCENE_DB, nil];
 	
-	// The NSOpenPanel/NSSavePanel method -(void)beginSheetForDirectory:file:types:modalForWindow:modalDelegate:didEndSelector:contextInfo
-	// is deprecated in Mac OS X v10.6.
 #if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_5
-	[panel setAllowedFileTypes:fileTypes];
-	[panel beginSheetModalForWindow:window
-				  completionHandler:^(NSInteger result) {
-					  [self chooseAdvansceneDatabaseDidEnd:panel returnCode:result contextInfo:nil];
-				  } ];
-#else
-	[panel beginSheetForDirectory:nil
-							 file:nil
-							types:fileTypes
-				   modalForWindow:window
-					modalDelegate:self
-				   didEndSelector:@selector(chooseAdvansceneDatabaseDidEnd:returnCode:contextInfo:)
-					  contextInfo:nil];
+	if (IsOSXVersionSupported(10, 6, 0))
+	{
+		[panel setAllowedFileTypes:fileTypes];
+		[panel beginSheetModalForWindow:window
+					  completionHandler:^(NSInteger result) {
+						  [self chooseAdvansceneDatabaseDidEnd:panel returnCode:(int)result contextInfo:nil];
+					  } ];
+	}
+	else
 #endif
+	{
+		SILENCE_DEPRECATION_MACOS_10_6( [panel beginSheetForDirectory:nil
+																 file:nil
+																types:fileTypes
+													   modalForWindow:window
+														modalDelegate:self
+													   didEndSelector:@selector(chooseAdvansceneDatabaseDidEnd:returnCode:contextInfo:)
+														  contextInfo:nil] );
+	}
 }
 
 - (void) chooseAdvansceneDatabaseDidEnd:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
 {
 	[sheet orderOut:self];
 	
-	if (returnCode == NSCancelButton)
+	if (returnCode == GUI_RESPONSE_CANCEL)
 	{
 		return;
 	}
@@ -506,112 +521,6 @@
 	
 	[[NSUserDefaults standardUserDefaults] setObject:selectedFile forKey:@"Advanscene_DatabasePath"];
 	[bindings setValue:[selectedFile lastPathComponent] forKey:@"AdvansceneDatabaseName"];
-}
-
-- (IBAction) chooseCheatDatabase:(id)sender
-{
-	NSOpenPanel *panel = [NSOpenPanel openPanel];
-	[panel setCanChooseDirectories:NO];
-	[panel setCanChooseFiles:YES];
-	[panel setResolvesAliases:YES];
-	[panel setAllowsMultipleSelection:NO];
-	[panel setTitle:NSSTRING_TITLE_SELECT_R4_CHEAT_DB_PANEL];
-	NSArray *fileTypes = [NSArray arrayWithObjects:@FILE_EXT_R4_CHEAT_DB, nil];
-	
-	// The NSOpenPanel/NSSavePanel method -(void)beginSheetForDirectory:file:types:modalForWindow:modalDelegate:didEndSelector:contextInfo
-	// is deprecated in Mac OS X v10.6.
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_5
-	[panel setAllowedFileTypes:fileTypes];
-	[panel beginSheetModalForWindow:window
-				  completionHandler:^(NSInteger result) {
-					  [self chooseCheatDatabaseDidEnd:panel returnCode:result contextInfo:nil];
-				  } ];
-#else
-	[panel beginSheetForDirectory:nil
-							 file:nil
-							types:fileTypes
-				   modalForWindow:window
-					modalDelegate:self
-				   didEndSelector:@selector(chooseCheatDatabaseDidEnd:returnCode:contextInfo:)
-					  contextInfo:nil];
-#endif
-}
-
-- (void) chooseCheatDatabaseDidEnd:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
-{
-	[sheet orderOut:self];
-	
-	if (returnCode == NSCancelButton)
-	{
-		return;
-	}
-	
-	NSURL *selectedFileURL = [[sheet URLs] lastObject]; //hopefully also the first object
-	if(selectedFileURL == nil)
-	{
-		return;
-	}
-	
-	NSString *selectedFile = [selectedFileURL path];
-	
-	[[NSUserDefaults standardUserDefaults] setObject:selectedFile forKey:@"R4Cheat_DatabasePath"];
-	[bindings setValue:[selectedFile lastPathComponent] forKey:@"R4CheatDatabaseName"];
-	
-	const BOOL isRomLoaded = [(EmuControllerDelegate *)[emuController content] currentRom] != nil;
-	NSMutableDictionary *cheatWindowBindings = (NSMutableDictionary *)[cheatWindowController content];
-	CocoaDSCheatManager *cdsCheats = (CocoaDSCheatManager *)[cheatWindowBindings valueForKey:@"cheatList"];
-	
-	if (isRomLoaded == YES && cdsCheats != nil)
-	{
-		NSInteger error = 0;
-		NSMutableArray *dbList = [cdsCheats cheatListFromDatabase:selectedFileURL errorCode:&error];
-		if (dbList != nil)
-		{
-			[cheatDatabaseController setContent:dbList];
-			
-			NSString *titleString = cdsCheats.dbTitle;
-			NSString *dateString = cdsCheats.dbDate;
-			
-			[cheatWindowBindings setValue:titleString forKey:@"cheatDBTitle"];
-			[cheatWindowBindings setValue:dateString forKey:@"cheatDBDate"];
-			[cheatWindowBindings setValue:[NSString stringWithFormat:@"%ld", (unsigned long)[dbList count]] forKey:@"cheatDBItemCount"];
-		}
-		else
-		{
-			// TODO: Display an error message here.
-			[cheatWindowBindings setValue:@"---" forKey:@"cheatDBItemCount"];
-			
-			switch (error)
-			{
-				case CHEATEXPORT_ERROR_FILE_NOT_FOUND:
-					NSLog(@"R4 Cheat Database read failed! Could not load the database file!");
-					[cheatWindowBindings setValue:@"Database not loaded." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"CANNOT LOAD FILE" forKey:@"cheatDBDate"];
-					break;
-					
-				case CHEATEXPORT_ERROR_WRONG_FILE_FORMAT:
-					NSLog(@"R4 Cheat Database read failed! Wrong file format!");
-					[cheatWindowBindings setValue:@"Database load error." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"FAILED TO LOAD FILE" forKey:@"cheatDBDate"];
-					break;
-					
-				case CHEATEXPORT_ERROR_SERIAL_NOT_FOUND:
-					NSLog(@"R4 Cheat Database read failed! Could not find the serial number for this game in the database!");
-					[cheatWindowBindings setValue:@"ROM not found in database." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"ROM not found." forKey:@"cheatDBDate"];
-					break;
-					
-				case CHEATEXPORT_ERROR_EXPORT_FAILED:
-					NSLog(@"R4 Cheat Database read failed! Could not read the database file!");
-					[cheatWindowBindings setValue:@"Database read error." forKey:@"cheatDBTitle"];
-					[cheatWindowBindings setValue:@"CANNOT READ FILE" forKey:@"cheatDBDate"];
-					break;
-					
-				default:
-					break;
-			}
-		}
-	}
 }
 
 - (IBAction) selectDisplayRotation:(id)sender
@@ -661,19 +570,19 @@
 	
 	if (vol <= 0.0f)
 	{
-		newIconImage = iconVolumeMute;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeMuteDM : iconVolumeMute;
 	}
 	else if (vol > 0.0f && vol <= VOLUME_THRESHOLD_LOW)
 	{
-		newIconImage = iconVolumeOneThird;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeOneThirdDM : iconVolumeOneThird;
 	}
 	else if (vol > VOLUME_THRESHOLD_LOW && vol <= VOLUME_THRESHOLD_HIGH)
 	{
-		newIconImage = iconVolumeTwoThird;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeTwoThirdDM : iconVolumeTwoThird;
 	}
 	else
 	{
-		newIconImage = iconVolumeFull;
+		newIconImage = (_isRunningDarkMode) ? iconVolumeFullDM : iconVolumeFull;
 	}
 	
 	if (newIconImage == iconImage)
@@ -727,23 +636,26 @@
 	[panel setTitle:NSSTRING_TITLE_SELECT_ARM9_IMAGE_PANEL];
 	NSArray *fileTypes = [NSArray arrayWithObjects:@FILE_EXT_HW_IMAGE_FILE, nil];
 	
-	// The NSOpenPanel/NSSavePanel method -(void)beginSheetForDirectory:file:types:modalForWindow:modalDelegate:didEndSelector:contextInfo
-	// is deprecated in Mac OS X v10.6.
 #if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_5
-	[panel setAllowedFileTypes:fileTypes];
-	[panel beginSheetModalForWindow:window
-				  completionHandler:^(NSInteger result) {
-					  [self chooseArm9BiosImageDidEnd:panel returnCode:result contextInfo:nil];
-				  } ];
-#else
-	[panel beginSheetForDirectory:nil
-							 file:nil
-							types:fileTypes
-				   modalForWindow:window
-					modalDelegate:self
-				   didEndSelector:@selector(chooseArm9BiosImageDidEnd:returnCode:contextInfo:)
-					  contextInfo:nil];
+	if (IsOSXVersionSupported(10, 6, 0))
+	{
+		[panel setAllowedFileTypes:fileTypes];
+		[panel beginSheetModalForWindow:window
+					  completionHandler:^(NSInteger result) {
+						  [self chooseArm9BiosImageDidEnd:panel returnCode:(int)result contextInfo:nil];
+					  } ];
+	}
+	else
 #endif
+	{
+		SILENCE_DEPRECATION_MACOS_10_6( [panel beginSheetForDirectory:nil
+																 file:nil
+																types:fileTypes
+													   modalForWindow:window
+														modalDelegate:self
+													   didEndSelector:@selector(chooseArm9BiosImageDidEnd:returnCode:contextInfo:)
+														  contextInfo:nil] );
+	}
 }
 
 - (IBAction) chooseARM7BiosImage:(id)sender
@@ -756,23 +668,26 @@
 	[panel setTitle:NSSTRING_TITLE_SELECT_ARM7_IMAGE_PANEL];
 	NSArray *fileTypes = [NSArray arrayWithObjects:@FILE_EXT_HW_IMAGE_FILE, nil];
 	
-	// The NSOpenPanel/NSSavePanel method -(void)beginSheetForDirectory:file:types:modalForWindow:modalDelegate:didEndSelector:contextInfo
-	// is deprecated in Mac OS X v10.6.
 #if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_5
-	[panel setAllowedFileTypes:fileTypes];
-	[panel beginSheetModalForWindow:window
-				  completionHandler:^(NSInteger result) {
-					  [self chooseArm7BiosImageDidEnd:panel returnCode:result contextInfo:nil];
-				  } ];
-#else
-	[panel beginSheetForDirectory:nil
-							 file:nil
-							types:fileTypes
-				   modalForWindow:window
-					modalDelegate:self
-				   didEndSelector:@selector(chooseArm7BiosImageDidEnd:returnCode:contextInfo:)
-					  contextInfo:nil];
+	if (IsOSXVersionSupported(10, 6, 0))
+	{
+		[panel setAllowedFileTypes:fileTypes];
+		[panel beginSheetModalForWindow:window
+					  completionHandler:^(NSInteger result) {
+						  [self chooseArm7BiosImageDidEnd:panel returnCode:(int)result contextInfo:nil];
+					  } ];
+	}
+	else
 #endif
+	{
+		SILENCE_DEPRECATION_MACOS_10_6( [panel beginSheetForDirectory:nil
+																 file:nil
+																types:fileTypes
+													   modalForWindow:window
+														modalDelegate:self
+													   didEndSelector:@selector(chooseArm7BiosImageDidEnd:returnCode:contextInfo:)
+														  contextInfo:nil] );
+	}
 }
 
 - (IBAction) chooseFirmwareImage:(id)sender
@@ -785,30 +700,33 @@
 	[panel setTitle:NSSTRING_TITLE_SELECT_FIRMWARE_IMAGE_PANEL];
 	NSArray *fileTypes = [NSArray arrayWithObjects:@FILE_EXT_HW_IMAGE_FILE, nil];
 	
-	// The NSOpenPanel/NSSavePanel method -(void)beginSheetForDirectory:file:types:modalForWindow:modalDelegate:didEndSelector:contextInfo
-	// is deprecated in Mac OS X v10.6.
 #if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_5
-	[panel setAllowedFileTypes:fileTypes];
-	[panel beginSheetModalForWindow:window
-				  completionHandler:^(NSInteger result) {
-					  [self chooseFirmwareImageDidEnd:panel returnCode:result contextInfo:nil];
-				  } ];
-#else
-	[panel beginSheetForDirectory:nil
-							 file:nil
-							types:fileTypes
-				   modalForWindow:window
-					modalDelegate:self
-				   didEndSelector:@selector(chooseFirmwareImageDidEnd:returnCode:contextInfo:)
-					  contextInfo:nil];
+	if (IsOSXVersionSupported(10, 6, 0))
+	{
+		[panel setAllowedFileTypes:fileTypes];
+		[panel beginSheetModalForWindow:window
+					  completionHandler:^(NSInteger result) {
+						  [self chooseFirmwareImageDidEnd:panel returnCode:(int)result contextInfo:nil];
+					  } ];
+	}
+	else
 #endif
+	{
+		SILENCE_DEPRECATION_MACOS_10_6( [panel beginSheetForDirectory:nil
+																 file:nil
+																types:fileTypes
+													   modalForWindow:window
+														modalDelegate:self
+													   didEndSelector:@selector(chooseFirmwareImageDidEnd:returnCode:contextInfo:)
+														  contextInfo:nil] );
+	}
 }
 
 - (void) chooseArm9BiosImageDidEnd:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
 {
 	[sheet orderOut:self];
 	
-	if (returnCode == NSCancelButton)
+	if (returnCode == GUI_RESPONSE_CANCEL)
 	{
 		return;
 	}
@@ -832,7 +750,7 @@
 {
 	[sheet orderOut:self];
 	
-	if (returnCode == NSCancelButton)
+	if (returnCode == GUI_RESPONSE_CANCEL)
 	{
 		return;
 	}
@@ -856,7 +774,7 @@
 {
 	[sheet orderOut:self];
 	
-	if (returnCode == NSCancelButton)
+	if (returnCode == GUI_RESPONSE_CANCEL)
 	{
 		return;
 	}
@@ -878,11 +796,23 @@
 
 - (IBAction) configureInternalFirmware:(id)sender
 {
-	[NSApp beginSheet:firmwareConfigSheet
-	   modalForWindow:window
-		modalDelegate:self
-	   didEndSelector:@selector(didEndFirmwareConfigSheet:returnCode:contextInfo:)
-		  contextInfo:nil];
+#if defined(MAC_OS_X_VERSION_10_9) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_9)
+	if ([window respondsToSelector:@selector(beginSheet:completionHandler:)])
+	{
+		[window beginSheet:firmwareConfigSheet
+		 completionHandler:^(NSModalResponse response) {
+			// Do nothing.
+		} ];
+	}
+	else
+#endif
+	{
+		SILENCE_DEPRECATION_MACOS_10_10( [NSApp beginSheet:firmwareConfigSheet
+											modalForWindow:window
+											 modalDelegate:self
+											didEndSelector:@selector(didEndFirmwareConfigSheet:returnCode:contextInfo:)
+											   contextInfo:nil] );
+	}
 }
 
 - (IBAction) closeFirmwareConfigSheet:(id)sender
@@ -890,10 +820,8 @@
 	NSWindow *sheet = [(NSControl *)sender window];
 	const NSInteger code = [CocoaDSUtil getIBActionSenderTag:sender];
 	
-	// Force end of editing of any text fields.
-	[sheet makeFirstResponder:nil];
-	
-    [NSApp endSheet:sheet returnCode:code];
+	[sheet makeFirstResponder:nil]; // Force end of editing of any text fields.
+	[CocoaDSUtil endSheet:sheet returnCode:code];
 }
 
 - (void) didEndFirmwareConfigSheet:(NSWindow *)sheet returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo
@@ -1084,12 +1012,6 @@
 		[bindings setValue:[advansceneDatabasePath lastPathComponent] forKey:@"AdvansceneDatabaseName"];
 	}
 	
-	NSString *cheatDatabasePath = [[NSUserDefaults standardUserDefaults] stringForKey:@"R4Cheat_DatabasePath"];
-	if (cheatDatabasePath != nil)
-	{
-		[bindings setValue:[cheatDatabasePath lastPathComponent] forKey:@"R4CheatDatabaseName"];
-	}
-	
 	NSString *autoloadRomPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"General_AutoloadROMSelectedPath"];
 	if (autoloadRomPath != nil)
 	{
@@ -1098,6 +1020,16 @@
 	else
 	{
 		[bindings setValue:NSSTRING_STATUS_NO_ROM_CHOSEN forKey:@"AutoloadRomName"];
+	}
+}
+
+- (void) handleAppearanceChange
+{
+	const BOOL newDarkModeState = [CocoaDSUtil determineDarkModeAppearance];
+	if (newDarkModeState != _isRunningDarkMode)
+	{
+		_isRunningDarkMode = newDarkModeState;
+		[self updateVolumeIcon:self];
 	}
 }
 

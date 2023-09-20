@@ -1,6 +1,6 @@
 /*
 		Copyright (C) 2007 Tim Seidel
-		Copyright (C) 2008-2021 DeSmuME team
+		Copyright (C) 2008-2022 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include "wifi.h"
 #include "armcpu.h"
 #include "NDSSystem.h"
+#include "emufile.h"
 #include "debug.h"
 #include "utils/bits.h"
 #include "utils/task.h"

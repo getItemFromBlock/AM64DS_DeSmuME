@@ -193,18 +193,22 @@ void PathInfo::LoadModulePath()
 {
 #if defined(HOST_WINDOWS)
 
-	char *p;
+	wchar_t *p;
 	ZeroMemory(pathToModule, sizeof(pathToModule));
 
-	GetModuleFileName(NULL, pathToModule, sizeof(pathToModule));
-	p = pathToModule + lstrlen(pathToModule);
-	while (p >= pathToModule && *p != DIRECTORY_DELIMITER_CHAR) p--;
-	if (++p >= pathToModule) *p = 0;
+	wchar_t wPathToModule[MAX_PATH];
+	GetModuleFileNameW(NULL, wPathToModule, sizeof(wPathToModule));
+	p = wPathToModule + wcslen(wPathToModule);
+	while (p >= wPathToModule && *p != DIRECTORY_DELIMITER_CHAR) p--;
+	if (++p >= wPathToModule) *p = 0;
 
-	extern char* _hack_alternateModulePath;
-	if (_hack_alternateModulePath)
+	auto tmp = wcstombs(wPathToModule);
+	strcpy(pathToModule,tmp.c_str());
+
+	extern std::string _hack_alternateModulePathUtf8;
+	if (!_hack_alternateModulePathUtf8.empty())
 	{
-		strcpy(pathToModule, _hack_alternateModulePath);
+		strcpy(pathToModule, _hack_alternateModulePathUtf8.c_str());
 	}
 #elif defined(DESMUME_COCOA)
 	std::string pathStr = Path::GetFileDirectoryPath(path);
@@ -228,6 +232,25 @@ void PathInfo::GetDefaultPath(char *pathToDefault, const char *key, int maxCount
 #endif
 }
 
+void PathInfo::ReadKeyW(char *pathToRead, const wchar_t *key)
+{
+	wchar_t wpath[MAX_PATH];
+	#ifdef HOST_WINDOWS
+	GetPrivateProfileStringW(LSECTION, key, key, wpath, MAX_PATH, IniNameW);
+	if (wcscmp(wpath, key) == 0) {
+		//since the variables are all intialized in this file they all use MAX_PATH
+		char temppath[MAX_PATH];
+		temppath[0] = 0;
+		GetDefaultPath(temppath, wcstombs((std::wstring)key).c_str(), MAX_PATH);
+		wcscpy(wpath,mbstowcs((std::string)temppath).c_str());
+	}
+	strcpy(pathToRead,wcstombs((std::wstring)wpath).c_str());
+	#else
+	//since the variables are all intialized in this file they all use MAX_PATH
+	GetDefaultPath(pathToRead, wcstombs((std::wstring)key).c_str(), MAX_PATH);
+	#endif
+}
+
 void PathInfo::ReadKey(char *pathToRead, const char *key)
 {
 #ifdef HOST_WINDOWS
@@ -247,18 +270,18 @@ void PathInfo::ReadPathSettings()
 	if ((strcmp(pathToModule, "") == 0) || !pathToModule)
 		LoadModulePath();
 
-	ReadKey(pathToRoms, ROMKEY);
-	ReadKey(pathToBattery, BATTERYKEY);
-	ReadKey(pathToSramImportExport, SRAMIMPORTKEY);
-	ReadKey(pathToStates, STATEKEY);
-	ReadKey(pathToStateSlots, STATESLOTKEY);
-	ReadKey(pathToScreenshots, SCREENSHOTKEY);
-	ReadKey(pathToAviFiles, AVIKEY);
-	ReadKey(pathToCheats, CHEATKEY);
-	ReadKey(pathToSounds, SOUNDKEY);
-	ReadKey(pathToFirmware, FIRMWAREKEY);
-	ReadKey(pathToLua, LUAKEY);
-	ReadKey(pathToSlot1D, SLOT1DKEY);
+	ReadKeyW(pathToRoms, ROMKEY);
+	ReadKeyW(pathToBattery, BATTERYKEY);
+	ReadKeyW(pathToSramImportExport, SRAMIMPORTKEY);
+	ReadKeyW(pathToStates, STATEKEY);
+	ReadKeyW(pathToStateSlots, STATESLOTKEY);
+	ReadKeyW(pathToScreenshots, SCREENSHOTKEY);
+	ReadKeyW(pathToAviFiles, AVIKEY);
+	ReadKeyW(pathToCheats, CHEATKEY);
+	ReadKeyW(pathToSounds, SOUNDKEY);
+	ReadKeyW(pathToFirmware, FIRMWAREKEY);
+	ReadKeyW(pathToLua, LUAKEY);
+	ReadKeyW(pathToSlot1D, SLOT1DKEY);
 #ifdef HOST_WINDOWS
 	GetPrivateProfileString(SECTION, FORMATKEY, "%f_%s_%r", screenshotFormat, MAX_FORMAT, IniName);
 	savelastromvisit = GetPrivateProfileBool(SECTION, LASTVISITKEY, true, IniName);

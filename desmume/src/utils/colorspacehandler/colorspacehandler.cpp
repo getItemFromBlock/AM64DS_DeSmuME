@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2016-2021 DeSmuME team
+	Copyright (C) 2016-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -30,6 +30,10 @@
 	#include "colorspacehandler_SSE2.cpp"
 #endif
 
+#if defined(ENABLE_NEON_A64)
+	#include "colorspacehandler_NEON.cpp"
+#endif
+
 #if defined(ENABLE_ALTIVEC)
 	#include "colorspacehandler_AltiVec.cpp"
 #endif
@@ -40,7 +44,7 @@
 #elif defined(ENABLE_AVX2)
 	#define USEVECTORSIZE_256
 	#define VECTORSIZE 32
-#elif defined(ENABLE_SSE2) || defined(ENABLE_ALTIVEC)
+#elif defined(ENABLE_SSE2) || defined(ENABLE_NEON_A64) || defined(ENABLE_ALTIVEC)
 	#define USEVECTORSIZE_128
 	#define VECTORSIZE 16
 #endif
@@ -60,6 +64,8 @@
 	static const ColorspaceHandler_AVX2 csh;
 	#elif defined(ENABLE_SSE2)
 	static const ColorspaceHandler_SSE2 csh;
+	#elif defined(ENABLE_NEON_A64)
+	static const ColorspaceHandler_NEON csh;
 	#elif defined(ENABLE_ALTIVEC)
 	static const ColorspaceHandler_AltiVec csh;
 	#else
@@ -78,7 +84,7 @@ CACHE_ALIGN u32 color_555_to_8888_opaque_swap_rb[32768];
 CACHE_ALIGN u32 color_555_to_888[32768];
 
 //is this a crazy idea? this table spreads 5 bits evenly over 31 from exactly 0 to INT_MAX
-CACHE_ALIGN const u32 material_5bit_to_31bit[] = {
+CACHE_ALIGN const u32 material_5bit_to_31bit[32] = {
 	0x00000000, 0x04210842, 0x08421084, 0x0C6318C6,
 	0x10842108, 0x14A5294A, 0x18C6318C, 0x1CE739CE,
 	0x21084210, 0x25294A52, 0x294A5294, 0x2D6B5AD6,
@@ -91,21 +97,33 @@ CACHE_ALIGN const u32 material_5bit_to_31bit[] = {
 
 // 5-bit to 6-bit conversions use this formula -- dst = (src == 0) ? 0 : (2*src) + 1
 // Reference GBATEK: http://problemkaputt.de/gbatek.htm#ds3dtextureblending
-CACHE_ALIGN const u8 material_5bit_to_6bit[] = {
+CACHE_ALIGN const u8 material_5bit_to_6bit[64] = {
+	0x00, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F,
+	0x11, 0x13, 0x15, 0x17, 0x19, 0x1B, 0x1D, 0x1F,
+	0x21, 0x23, 0x25, 0x27, 0x29, 0x2B, 0x2D, 0x2F,
+	0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3D, 0x3F,
+	
+	// Mirror of first 32 bytes of this array.
 	0x00, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F,
 	0x11, 0x13, 0x15, 0x17, 0x19, 0x1B, 0x1D, 0x1F,
 	0x21, 0x23, 0x25, 0x27, 0x29, 0x2B, 0x2D, 0x2F,
 	0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3D, 0x3F
 };
 
-CACHE_ALIGN const u8 material_5bit_to_8bit[] = {
+CACHE_ALIGN const u8 material_5bit_to_8bit[64] = {
+	0x00, 0x08, 0x10, 0x18, 0x21, 0x29, 0x31, 0x39,
+	0x42, 0x4A, 0x52, 0x5A, 0x63, 0x6B, 0x73, 0x7B,
+	0x84, 0x8C, 0x94, 0x9C, 0xA5, 0xAD, 0xB5, 0xBD,
+	0xC6, 0xCE, 0xD6, 0xDE, 0xE7, 0xEF, 0xF7, 0xFF,
+	
+	// Mirror of first 32 bytes of this array.
 	0x00, 0x08, 0x10, 0x18, 0x21, 0x29, 0x31, 0x39,
 	0x42, 0x4A, 0x52, 0x5A, 0x63, 0x6B, 0x73, 0x7B,
 	0x84, 0x8C, 0x94, 0x9C, 0xA5, 0xAD, 0xB5, 0xBD,
 	0xC6, 0xCE, 0xD6, 0xDE, 0xE7, 0xEF, 0xF7, 0xFF
 };
 
-CACHE_ALIGN const u8 material_6bit_to_8bit[] = {
+CACHE_ALIGN const u8 material_6bit_to_8bit[64] = {
 	0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C,
 	0x20, 0x24, 0x28, 0x2C, 0x30, 0x34, 0x38, 0x3C,
 	0x41, 0x45, 0x49, 0x4D, 0x51, 0x55, 0x59, 0x5D,
@@ -116,18 +134,25 @@ CACHE_ALIGN const u8 material_6bit_to_8bit[] = {
 	0xE3, 0xE7, 0xEB, 0xEF, 0xF3, 0xF7, 0xFB, 0xFF
 };
 
-CACHE_ALIGN const u8 material_3bit_to_8bit[] = {
-	0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF
+CACHE_ALIGN const u8 material_3bit_to_5bit[64] = {
+	0, 4, 8, 13, 17, 22, 26, 31, 0,0,0,0,0,0,0,0,
+	0, 4, 8, 13, 17, 22, 26, 31, 0,0,0,0,0,0,0,0,
+	0, 4, 8, 13, 17, 22, 26, 31, 0,0,0,0,0,0,0,0,
+	0, 4, 8, 13, 17, 22, 26, 31, 0,0,0,0,0,0,0,0
 };
 
-//maybe not very precise
-CACHE_ALIGN const u8 material_3bit_to_5bit[] = {
-	0, 4, 8, 13, 17, 22, 26, 31
+CACHE_ALIGN const u8 material_3bit_to_6bit[64] = {
+	0, 8, 16, 26, 34, 44, 52, 63, 0,0,0,0,0,0,0,0,
+	0, 8, 16, 26, 34, 44, 52, 63, 0,0,0,0,0,0,0,0,
+	0, 8, 16, 26, 34, 44, 52, 63, 0,0,0,0,0,0,0,0,
+	0, 8, 16, 26, 34, 44, 52, 63, 0,0,0,0,0,0,0,0
 };
 
-//TODO - generate this in the static init method more accurately
-CACHE_ALIGN const u8 material_3bit_to_6bit[] = {
-	0, 8, 16, 26, 34, 44, 52, 63
+CACHE_ALIGN const u8 material_3bit_to_8bit[64] = {
+	0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF, 0,0,0,0,0,0,0,0,
+	0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF, 0,0,0,0,0,0,0,0,
+	0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF, 0,0,0,0,0,0,0,0,
+	0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF, 0,0,0,0,0,0,0,0
 };
 
 void ColorspaceHandlerInit()
@@ -728,10 +753,10 @@ void ColorspaceApplyIntensityToBuffer32(u32 *dst, size_t pixCount, float intensi
 #endif
 			for (; i < pixCount; i++)
 			{
-				FragmentColor dstColor;
-				dstColor.color = dst[i];
+				Color4u8 dstColor;
+				dstColor.value = dst[i];
 				
-				FragmentColor &outColor = (FragmentColor &)dst[i];
+				Color4u8 &outColor = (Color4u8 &)dst[i];
 				outColor.r = dstColor.b;
 				outColor.b = dstColor.r;
 			}
@@ -761,10 +786,10 @@ void ColorspaceApplyIntensityToBuffer32(u32 *dst, size_t pixCount, float intensi
 #endif
 		for (; i < pixCount; i++)
 		{
-			FragmentColor dstColor;
-			dstColor.color = dst[i];
+			Color4u8 dstColor;
+			dstColor.value = dst[i];
 			
-			FragmentColor &outColor = (FragmentColor &)dst[i];
+			Color4u8 &outColor = (Color4u8 &)dst[i];
 			outColor.r = (u8)( ((u16)dstColor.b * intensity_u16) >> 16 );
 			outColor.g = (u8)( ((u16)dstColor.g * intensity_u16) >> 16 );
 			outColor.b = (u8)( ((u16)dstColor.r * intensity_u16) >> 16 );
@@ -777,7 +802,7 @@ void ColorspaceApplyIntensityToBuffer32(u32 *dst, size_t pixCount, float intensi
 #endif
 		for (; i < pixCount; i++)
 		{
-			FragmentColor &outColor = (FragmentColor &)dst[i];
+			Color4u8 &outColor = (Color4u8 &)dst[i];
 			outColor.r = (u8)( ((u16)outColor.r * intensity_u16) >> 16 );
 			outColor.g = (u8)( ((u16)outColor.g * intensity_u16) >> 16 );
 			outColor.b = (u8)( ((u16)outColor.b * intensity_u16) >> 16 );
@@ -1308,7 +1333,7 @@ size_t ColorspaceHandler::ApplyIntensityToBuffer32(u32 *dst, size_t pixCount, fl
 	
 	for (; i < pixCount; i++)
 	{
-		FragmentColor &outColor = (FragmentColor &)dst[i];
+		Color4u8 &outColor = (Color4u8 &)dst[i];
 		outColor.r = (u8)( ((u16)outColor.r * intensity_u16) >> 16 );
 		outColor.g = (u8)( ((u16)outColor.g * intensity_u16) >> 16 );
 		outColor.b = (u8)( ((u16)outColor.b * intensity_u16) >> 16 );
@@ -1325,10 +1350,10 @@ size_t ColorspaceHandler::ApplyIntensityToBuffer32_SwapRB(u32 *dst, size_t pixCo
 	{
 		for (; i < pixCount; i++)
 		{
-			FragmentColor dstColor;
-			dstColor.color = dst[i];
+			Color4u8 dstColor;
+			dstColor.value = dst[i];
 			
-			FragmentColor &outColor = (FragmentColor &)dst[i];
+			Color4u8 &outColor = (Color4u8 &)dst[i];
 			outColor.r = dstColor.b;
 			outColor.b = dstColor.r;
 		}
@@ -1349,10 +1374,10 @@ size_t ColorspaceHandler::ApplyIntensityToBuffer32_SwapRB(u32 *dst, size_t pixCo
 	
 	for (; i < pixCount; i++)
 	{
-		FragmentColor dstColor;
-		dstColor.color = dst[i];
+		Color4u8 dstColor;
+		dstColor.value = dst[i];
 		
-		FragmentColor &outColor = (FragmentColor &)dst[i];
+		Color4u8 &outColor = (Color4u8 &)dst[i];
 		outColor.r = (u8)( ((u16)dstColor.b * intensity_u16) >> 16 );
 		outColor.g = (u8)( ((u16)dstColor.g * intensity_u16) >> 16 );
 		outColor.b = (u8)( ((u16)dstColor.r * intensity_u16) >> 16 );
