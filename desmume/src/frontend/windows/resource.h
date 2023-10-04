@@ -515,8 +515,10 @@
 #define IDC_STATIC_RANGE                1066
 #define IDC_WIFI_COMPAT                 1066
 #define IDC_ANALOG_X                    1066
-#define IDC_TEXSCALE                    1067
+#define IDC_HCVSCAN                     1066
 #define IDC_ANALOG_Y                    1067
+#define IDC_TEXSCALE                    1067
+#define IDC_HCVBARCODE                  1067
 #define IDC_BADD                        1068
 #define IDC_LIST                        1069
 #define IDC_ANALOG_DEADZONE_SLIDER      1069
@@ -928,7 +930,8 @@
 #define IDD_SLOT1_R4                    10012
 #define IDD_SLOT1_DEBUG                 10013
 #define IDD_GBASLOT_PADDLE              10014
-#define IDD_GBASLOT_ANALOG              10015
+#define IDD_GBASLOT_HCV1000             10015
+#define IDD_GBASLOT_ANALOG              10016
 #define IDM_FILE_STOPAVI                40000
 #define IDM_SCREENSEP_NONE              40000
 #define IDM_FILE_STOPWAV                40001
@@ -1162,7 +1165,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40159
-#define _APS_NEXT_CONTROL_VALUE         1071
+#define _APS_NEXT_CONTROL_VALUE         1068
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -3,7 +3,7 @@
 	licensed under the terms supplied at the end of this file (for the terms are very long!)
 	Differences from that baseline version are:
 
-	Copyright (C) 2009-2019 DeSmuME team
+	Copyright (C) 2009-2023 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -265,6 +265,9 @@ SPaddle DefaultPaddle = { false, 'K', 'L' };
 SAnalog Analog;
 SAnalog DefaultAnalog = { false, 1, 2, 15, true };
 
+SHCV1000 HCV1000;
+SHCV1000 DefaultHCV1000 = { false, 'L'};
+
 bool killStylusTopScreen = false;
 bool killStylusOffScreen = false;
 bool allowUpAndDown = false;
@@ -401,6 +404,15 @@ static void ReadAnalogControl(const char* name, WORD& output)
 {
 	UINT temp;
 	temp = GetPrivateProfileInt("Slot2.Analog", name, -1, IniName);
+    if (temp != -1) {
+		output = temp;
+	}
+}
+
+static void ReadHCV1000Control(const char* name, WORD& output)
+{
+	UINT temp;
+	temp = GetPrivateProfileInt("Slot2.HCV1000", name, -1, IniName);
 	if (temp != -1) {
 		output = temp;
 	}
@@ -485,6 +497,15 @@ static void LoadAnalogConfig()
 	ReadAnalogControl("Y", Analog.Y);
 	ReadAnalogControl("Deadzone", Analog.Deadzone);
 	ReadAnalogBool("Joined", Analog.Joined);
+}
+
+static void LoadHCV1000Config()
+{
+	memcpy(&HCV1000, &DefaultHCV1000, sizeof(HCV1000));
+
+#define DO(X) ReadHCV1000Control(#X,HCV1000.X);
+	DO(SCANKEY);
+#undef DO
 }
 
 
@@ -2929,6 +2950,7 @@ void input_init()
 	LoadPianoConfig();
 	LoadPaddleConfig();
 	LoadAnalogConfig();
+	LoadHCV1000Config();
 
 	di_init();
 	FeedbackON = input_feedback;
@@ -3073,6 +3095,12 @@ void input_acquire()
 			}
 
 			analog_setValue(x, y);
+        }
+        
+		if (HCV1000.Enabled)
+		{
+			bool scan = !S9xGetState(HCV1000.SCANKEY);
+			if (scan) HCV1000_setReady();
 		}
 	}
 	else
