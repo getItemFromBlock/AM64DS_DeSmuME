@@ -1580,6 +1580,7 @@ static BOOL LoadROM(const char * filename, const char * physicalName, const char
 		Guitar.Enabled	= (selectedSlot2Type == NDS_SLOT2_GUITARGRIP)?true:false;
 		Piano.Enabled	= (selectedSlot2Type == NDS_SLOT2_EASYPIANO)?true:false;
 		Paddle.Enabled	= (selectedSlot2Type == NDS_SLOT2_PADDLE)?true:false;
+        Analog.Enabled  = (selectedSlot2Type == NDS_SLOT2_ANALOG)?true:false;
 		HCV1000.Enabled = (selectedSlot2Type == NDS_SLOT2_HCV1000)?true:false;
 		
 		LoadSaveStateInfo();
@@ -2262,6 +2263,8 @@ int _main()
 			break;
 		case NDS_SLOT2_PASSME:
 			break;
+		case NDS_SLOT2_ANALOG:
+            break;
 		case NDS_SLOT2_HCV1000:
 			break;
 		default:
@@ -2274,6 +2277,7 @@ int _main()
 	Guitar.Enabled	= (slot2_device_type == NDS_SLOT2_GUITARGRIP)?true:false;
 	Piano.Enabled	= (slot2_device_type == NDS_SLOT2_EASYPIANO)?true:false;
 	Paddle.Enabled	= (slot2_device_type == NDS_SLOT2_PADDLE)?true:false;
+    Analog.Enabled  = (slot2_device_type == NDS_SLOT2_ANALOG)?true:false;
 	HCV1000.Enabled = (slot2_device_type == NDS_SLOT2_HCV1000)?true:false;
 
 	CommonSettings.WifiBridgeDeviceID = GetPrivateProfileInt("Wifi", "BridgeAdapter", 0, IniName);
